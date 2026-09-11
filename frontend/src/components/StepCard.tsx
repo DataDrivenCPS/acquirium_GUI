@@ -4,12 +4,24 @@
  * A card is a thing in the plant -- a class of equipment, something connected
  * to it, or its measurements -- and it carries everything true about that
  * thing: what it is, which way the flow runs, and the conditions narrowing
- * it. Clicking it selects it, and whatever gets added next hangs off it.
+ * it.
  *
- * That selection is the whole reason there are no `from` / `target` pickers
- * left. Branching used to mean choosing an alias out of a dropdown; now it
- * means clicking the card you want to branch from, and the line drawn between
- * the two says what the alias used to say.
+ * **Every card shows what can be done from it, always.** The actions used to
+ * appear only on the selected card, which made the commonest thing in the app
+ * -- "get this pump's pressure" -- a two-step affair: click the card to
+ * reveal the buttons, then click a button, with the card growing under the
+ * pointer in between. A card is a small thing with at most three actions;
+ * there is no room saved worth that.
+ *
+ * Selection still exists and still decides where the *plant* attaches a step
+ * when a node is clicked out there, which is why the selected card is ringed
+ * and says so. It is no longer a prerequisite for using the card in front of
+ * you.
+ *
+ * That selection is also the whole reason there are no `from` / `target`
+ * pickers left. Branching used to mean choosing an alias out of a dropdown;
+ * now it means clicking the card you want to branch from, and the line drawn
+ * between the two says what the alias used to say.
  */
 
 import { useState } from 'react'
@@ -187,7 +199,7 @@ export function StepCard({ node, parent, selected, suggestions }: StepCardProps)
         </div>
       )}
 
-      {(chips.length > 0 || selected) && (
+      {chips.length > 0 && (
         // Clicks inside the card's own controls must not bubble up to the
         // card's select handler: it would run *after* the control's own
         // dispatch and move the selection back onto this card.
@@ -216,33 +228,52 @@ export function StepCard({ node, parent, selected, suggestions }: StepCardProps)
               attr={condition.attr}
               onChange={(values) => patchCondition(condition, values)}
               onDone={() => setEditing(null)}
+              onRemove={() => removeCondition(condition)}
             />
           </div>
         )
       })}
 
-      {selected && (
-        <div className="qb-actions" onClick={(event) => event.stopPropagation()}>
-          {/* A measurement is the end of a chain: nothing connects to a
-              reading, so those actions are not offered there. */}
-          {step.kind !== 'measurement' && (
-            <>
-              <button type="button" className="qb-action" onClick={() => addFromHere('related')}>
-                <ConnectionIcon />
-                Follow a connection
-              </button>
-              <button type="button" className="qb-action" onClick={() => addFromHere('measurement')}>
-                <MeasurementIcon />
-                Get measurements
-              </button>
-            </>
-          )}
-          <button type="button" className="qb-action" onClick={addCondition}>
-            <ConditionIcon />
-            Add a condition
-          </button>
-        </div>
-      )}
+      {/* Always on, not only when selected -- see the note at the top. */}
+      <div className="qb-actions" onClick={(event) => event.stopPropagation()}>
+        {/* A measurement is the end of a chain: nothing connects to a
+            reading, so those actions are not offered there. */}
+        {step.kind !== 'measurement' && (
+          <>
+            <button
+              type="button"
+              className="qb-action"
+              title="Add whatever this is piped to or fed by"
+              onClick={() => addFromHere('related')}
+            >
+              <ConnectionIcon />
+              Follow a connection
+            </button>
+            <button
+              type="button"
+              className="qb-action qb-action-primary"
+              title="Add this equipment's readings to the query"
+              onClick={() => addFromHere('measurement')}
+            >
+              <MeasurementIcon />
+              Get readings
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          className="qb-action"
+          title="Narrow this down to only some of them"
+          onClick={addCondition}
+        >
+          <ConditionIcon />
+          Add a condition
+        </button>
+      </div>
+
+      {/* What being the selected card actually buys you, said once, on the
+          card it is true of -- otherwise the ring is decoration. */}
+      {selected && <p className="qb-attach">Clicking the plant adds onto this step.</p>}
     </div>
   )
 }

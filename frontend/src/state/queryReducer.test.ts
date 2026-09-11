@@ -273,6 +273,49 @@ describe('serializing', () => {
       hasMeasurement(run({ type: 'add', kind: 'entity' }, { type: 'add', kind: 'measurement' })),
     ).toBe(true)
   })
+
+  // A condition the user has opened but not answered must not reach the
+  // backend: it would be sent as "medium is <nothing>", match no rows, and
+  // blank the results the moment someone starts narrowing them.
+  it('leaves out a condition with no value chosen yet', () => {
+    let state = run({ type: 'add', kind: 'entity', patch: { cls: PUMP } })
+    const id = state.steps[0]!.id
+    state = queryReducer(state, {
+      type: 'update',
+      id,
+      patch: {
+        attrs: [
+          { name: 'medium', value: { id: '', label: '' }, negated: false },
+          { name: 'unit', value: { id: 'u_bar', label: 'bar' }, negated: false },
+        ],
+      },
+    })
+
+    expect(toDescription(state).steps[0]?.attrs).toEqual([
+      { name: 'unit', value: { id: 'u_bar', label: 'bar' }, negated: false },
+    ])
+    // The step itself stays: it is the user's query, not their condition.
+    expect(toDescription(state).steps).toHaveLength(1)
+  })
+
+  it('drops a where() step whose only condition is unanswered', () => {
+    let state = run({ type: 'add', kind: 'entity', patch: { cls: PUMP } })
+    state = queryReducer(state, { type: 'add', kind: 'where' })
+    const whereId = state.steps[1]!.id
+    state = queryReducer(state, {
+      type: 'update',
+      id: whereId,
+      patch: { attrs: [{ name: 'medium', value: { id: '', label: '' }, negated: false }] },
+    })
+
+    // An empty where() narrows nothing and only clutters the generated query.
+    expect(toDescription(state).steps.map((step) => step.kind)).toEqual(['entity'])
+  })
+
+  it('leaves a finished query exactly as it is', () => {
+    const state = run({ type: 'add', kind: 'entity', patch: { cls: PUMP } })
+    expect(toDescription(state)).toEqual({ steps: state.steps })
+  })
 })
 
 describe('step editing helpers', () => {

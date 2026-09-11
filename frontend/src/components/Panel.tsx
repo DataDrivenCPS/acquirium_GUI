@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react'
 
 interface PanelProps {
-  title: string
+  /**
+   * Optional: a panel inside the dock is already named by its tab, and
+   * repeating the name costs a header's worth of the height the builder
+   * wants. Omitting it drops the header entirely.
+   */
+  title?: string
   /** One line under the title saying what this panel is for. */
   subtitle?: string
   /** Buttons for the panel header. */
@@ -9,17 +14,21 @@ interface PanelProps {
   children: ReactNode
 }
 
-/** A titled box. One of the four quadrants, or a section under them. */
+/** A titled box: a dock tab's content, or a section under one. */
 export function Panel({ title, subtitle, actions, children }: PanelProps) {
+  const header = title || subtitle || actions
+
   return (
     <section className="panel">
-      <header className="panel-header">
-        <div>
-          <h2>{title}</h2>
-          {subtitle && <p className="panel-subtitle">{subtitle}</p>}
-        </div>
-        {actions && <div className="panel-actions">{actions}</div>}
-      </header>
+      {header && (
+        <header className="panel-header">
+          <div>
+            {title && <h2>{title}</h2>}
+            {subtitle && <p className="panel-subtitle">{subtitle}</p>}
+          </div>
+          {actions && <div className="panel-actions">{actions}</div>}
+        </header>
+      )}
       <div className="panel-body">{children}</div>
     </section>
   )

@@ -28,13 +28,21 @@ interface ConditionChipProps {
   onRemove: () => void
 }
 
-/** One condition, as a readable pill. Click it to change it. */
+/**
+ * One condition, as a readable pill. Click it to change it.
+ *
+ * A condition with no value yet reads as the sentence it is on its way to
+ * being -- "medium is …" -- rather than as "unfinished condition". The dashed
+ * outline already says it is not narrowing anything; the words should say
+ * what it will narrow, which is the part the user is mid-way through
+ * answering.
+ */
 export function ConditionChip({ attr, active, onEdit, onRemove }: ConditionChipProps) {
   const blank = isBlank(attr)
   return (
     <span className={`qb-chip${active ? ' is-active' : ''}${blank ? ' is-blank' : ''}`}>
       <button type="button" className="qb-chip-label" onClick={onEdit}>
-        {blank ? 'unfinished condition' : attrSummary(attr)}
+        {blank ? `${ATTRIBUTE_LABELS[attr.name]} ${attr.negated ? 'is not' : 'is'} …` : attrSummary(attr)}
       </button>
       <button type="button" className="qb-chip-remove" onClick={onRemove} title="Remove this condition">
         <CloseIcon />
@@ -47,57 +55,84 @@ interface ConditionEditorProps {
   attr: AttrFilter
   onChange: (patch: Partial<AttrFilter>) => void
   onDone: () => void
+  /** Abandon the condition entirely, rather than leave it half-written. */
+  onRemove: () => void
 }
 
-export function ConditionEditor({ attr, onChange, onDone }: ConditionEditorProps) {
+/**
+ * The three-control editor, opened for one condition at a time.
+ *
+ * It is laid out as the sentence it writes -- "only where / medium / is /
+ * Brine" -- with the lead-in spelled out above the controls. Three bare
+ * dropdowns in a row is a form; the same three under a sentence is a
+ * sentence with blanks in it, and a plant operator can check the second one
+ * at a glance.
+ *
+ * Picking a value closes the editor: for the overwhelmingly common
+ * single-condition case that is the whole interaction, and there is nothing
+ * left to confirm. "Done" stays for the case where the attribute or the
+ * is/is-not was what changed.
+ */
+export function ConditionEditor({ attr, onChange, onDone, onRemove }: ConditionEditorProps) {
   const values = useAttributeValues(attr.name)
 
   return (
     <div className="qb-editor">
-      <select
-        aria-label="What to check"
-        value={attr.name}
-        onChange={(event) =>
-          // Changing the attribute invalidates the value picked for the old
-          // one, so it is cleared rather than left mismatched.
-          onChange({ name: event.target.value as AttributeName, value: { id: '', label: '' } })
-        }
-      >
-        {ATTRIBUTE_NAMES.map((name) => (
-          <option key={name} value={name}>
-            {ATTRIBUTE_LABELS[name]}
-          </option>
-        ))}
-      </select>
+      <p className="qb-editor-lead">Only include ones where…</p>
 
-      <select
-        aria-label="is or is not"
-        value={attr.negated ? 'not' : 'is'}
-        onChange={(event) => onChange({ negated: event.target.value === 'not' })}
-      >
-        <option value="is">is</option>
-        <option value="not">is not</option>
-      </select>
+      <div className="qb-editor-row">
+        <select
+          aria-label="What to check"
+          value={attr.name}
+          onChange={(event) =>
+            // Changing the attribute invalidates the value picked for the old
+            // one, so it is cleared rather than left mismatched.
+            onChange({ name: event.target.value as AttributeName, value: { id: '', label: '' } })
+          }
+        >
+          {ATTRIBUTE_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {ATTRIBUTE_LABELS[name]}
+            </option>
+          ))}
+        </select>
 
-      <select
-        aria-label="Value"
-        value={attr.value.id}
-        onChange={(event) => {
-          const chosen = values.find((value) => value.id === event.target.value)
-          if (chosen) onChange({ value: chosen })
-        }}
-      >
-        <option value="">choose a value…</option>
-        {values.map((value) => (
-          <option key={value.id} value={value.id}>
-            {value.label}
-          </option>
-        ))}
-      </select>
+        <select
+          aria-label="is or is not"
+          value={attr.negated ? 'not' : 'is'}
+          onChange={(event) => onChange({ negated: event.target.value === 'not' })}
+        >
+          <option value="is">is</option>
+          <option value="not">is not</option>
+        </select>
 
-      <button type="button" className="qb-action" onClick={onDone}>
-        Done
-      </button>
+        <select
+          aria-label="Value"
+          value={attr.value.id}
+          onChange={(event) => {
+            const chosen = values.find((value) => value.id === event.target.value)
+            if (!chosen) return
+            onChange({ value: chosen })
+            onDone()
+          }}
+        >
+          <option value="">choose a value…</option>
+          {values.map((value) => (
+            <option key={value.id} value={value.id}>
+              {value.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="qb-editor-actions">
+        <button type="button" className="qb-action qb-action-quiet" onClick={onRemove}>
+          Remove
+        </button>
+        <button type="button" className="qb-action" onClick={onDone}>
+          Done
+        </button>
+      </div>
     </div>
   )
 }

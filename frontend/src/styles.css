@@ -142,6 +142,13 @@ body {
   background-color: var(--bg-app);
   background-image: radial-gradient(circle, #dbe1e7 1px, transparent 1px);
   background-size: 22px 22px;
+  cursor: grab;
+}
+
+/* Cytoscape draws to a canvas, so the only thing that can say "this is
+   clickable" is the container's cursor, toggled from its hover handlers. */
+.graph-canvas.is-pointing {
+  cursor: pointer;
 }
 
 .graph-toolbar {
@@ -190,8 +197,15 @@ body {
   pointer-events: none;
 }
 
+/* The one instruction the empty workspace gives, so it is a label on the
+   canvas rather than grey text trailing off the corner. */
 .graph-hint {
+  display: inline-block;
   margin: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   color: var(--muted);
 }
@@ -244,6 +258,109 @@ body {
   font-weight: 600;
 }
 
+.node-card-cue {
+  margin: 8px 0 0;
+  padding-top: 7px;
+  border-top: 1px dashed var(--border-soft);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* --- the clicked node's menu --------------------------------------------- */
+
+/* Pinned at the node, offset so the tile it belongs to stays visible above
+   it. `left`/`top` come from Cytoscape's rendered position, which is already
+   in canvas pixels. */
+.node-menu {
+  position: absolute;
+  z-index: 6;
+  /* Centred on the node; the component supplies the vertical clearance, so
+     this only has to decide which end of the menu meets it. */
+  transform: translate(-50%, 0);
+  width: max-content;
+  max-width: min(280px, 100%);
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(16, 24, 32, 0.2);
+}
+
+/* Flipped: the menu's bottom edge is what meets the node. */
+.node-menu.is-above {
+  transform: translate(-50%, -100%);
+}
+
+.node-menu-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.node-menu-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.node-menu-facts {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.node-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.node-menu-action {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-panel);
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #1c2229;
+  cursor: pointer;
+  text-align: left;
+}
+
+.node-menu-action:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The meaning the old silent click had, now the default rather than a
+   guess -- so the fast path is still one click after the node. */
+.node-menu-action.is-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.node-menu-action.is-primary:hover {
+  background: #1d4e80;
+  border-color: #1d4e80;
+  color: #ffffff;
+}
+
+.node-menu-matched {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--measurement);
+}
+
 .node-card-matched {
   margin: 8px 0 0;
   padding-top: 7px;
@@ -277,26 +394,46 @@ body {
   gap: 5px;
 }
 
+/* Shaped like the tiles on the canvas, so the key reads as a miniature of
+   the thing it explains rather than as a row of checkboxes. */
 .legend-swatch {
-  width: 11px;
-  height: 11px;
-  border-radius: 3px;
-  border: 1.5px solid;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid;
 }
 
 .legend-equipment {
-  background: #ffffff;
-  border-color: #b9c4cf;
+  background: #f3f8fd;
+  border-color: #7d9fc4;
+}
+
+.legend-measurement {
+  background: #fbf0dc;
+  border-color: #c69a4e;
 }
 
 .legend-system {
   background: #eef1f5;
   border-color: #9aa7b4;
+  border-style: dashed;
 }
 
 .legend-matched {
   background: #ffd479;
   border-color: #b8860b;
+}
+
+/* The two kinds of connection, drawn as the lines themselves. */
+.legend-line {
+  width: 16px;
+  height: 0;
+  border-top: 2px solid #a9b8c6;
+}
+
+.legend-line-structural {
+  border-top-style: dashed;
+  border-top-color: #c3ced9;
 }
 
 /* --- query bar ----------------------------------------------------------- */
@@ -350,7 +487,10 @@ body {
   bottom: 10px;
   z-index: 4;
   display: flex;
-  width: 440px;
+  /* Tabs across the top, panel underneath. A side rail spent its width for
+     the dock's whole height to show three words. */
+  flex-direction: column;
+  width: 420px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -358,7 +498,7 @@ body {
   overflow: hidden;
 }
 
-/* Collapsed, it is just the rail -- the plant gets the whole window. */
+/* Collapsed, it is just the tab strip -- the plant gets the whole window. */
 .dock.is-collapsed {
   width: auto;
   bottom: auto;
@@ -366,32 +506,31 @@ body {
 
 .dock-tabs {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 2px;
-  padding: 6px;
+  padding: 5px 6px;
   flex-shrink: 0;
   background: var(--bg-sunken);
-  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .dock.is-collapsed .dock-tabs {
-  border-right: 0;
+  border-bottom: 0;
 }
 
 .dock-tab {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
+  gap: 6px;
   border: 1px solid transparent;
   border-radius: 7px;
   background: none;
-  padding: 7px 10px;
+  padding: 6px 10px;
   font-size: 12px;
   color: var(--muted);
   cursor: pointer;
-  text-align: left;
+  white-space: nowrap;
 }
 
 .dock-tab:hover {
@@ -404,10 +543,10 @@ body {
   border-color: var(--border);
   color: var(--accent);
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 32, 0.06);
 }
 
 .dock-badge {
-  margin-left: auto;
   padding: 0 6px;
   border-radius: 999px;
   background: var(--accent-soft);
@@ -420,11 +559,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: auto;
+  /* Pinned to the far end of the strip, away from the tabs. */
+  margin-left: auto;
   border: 1px solid transparent;
   border-radius: 7px;
   background: none;
-  padding: 7px;
+  padding: 6px;
   color: var(--muted);
   cursor: pointer;
 }
@@ -437,9 +577,56 @@ body {
 
 .dock-body {
   flex: 1;
+  min-height: 0;
   min-width: 0;
   display: flex;
   overflow: hidden;
+}
+
+/* --- the dock's width, in the user's hands ------------------------------- */
+
+/* A hit target wide enough to grab, drawn as a grip only when reached for.
+   Inside the dock's own edge rather than straddling it: the dock clips its
+   children to keep its rounded corners. */
+.dock-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.dock-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  width: 3px;
+  height: 40px;
+  margin-top: -20px;
+  border-radius: 999px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.dock-resizer:hover::after,
+.dock-resizer:focus-visible::after {
+  opacity: 1;
+  background: var(--accent);
+}
+
+.dock-resizer:focus-visible {
+  outline: none;
+}
+
+/* While dragging, the pointer is over the graph canvas half the time and
+   text selection anywhere is only ever an accident. */
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 /* Inside the dock a panel is the whole surface, so it drops its own frame. */
@@ -495,11 +682,19 @@ body {
 @media (max-width: 720px) {
   .dock {
     right: 10px;
-    width: auto;
+    /* The only !important in the file, and it is earning it: the dock's
+       width is an inline style because the user drags it, and at this size
+       there is no width worth dragging to -- the window is the answer. */
+    width: auto !important;
   }
 
   .dock.is-collapsed {
     right: auto;
+  }
+
+  /* Nothing to drag when the width is the window's. */
+  .dock-resizer {
+    display: none;
   }
 
   /* The dock covers the window at this size, so the plant keeps all of it
@@ -912,25 +1107,53 @@ body {
   color: #a11;
 }
 
+/* The editor is laid out as the sentence it writes: the lead-in, then the
+   blanks, then what to do about it. */
 .qb-editor {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
   margin-top: 6px;
-  padding: 6px;
+  padding: 8px;
   background: var(--bg-sunken);
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 12px;
 }
 
+.qb-editor-lead {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.qb-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.qb-editor-row select {
+  /* Never wider than the dock, however long a value's label is. */
+  max-width: 100%;
+  min-width: 0;
+}
+
+.qb-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 8px;
+}
+
 /* --- what you can do from here ------------------------------------------ */
 
+/* On every card, not just the selected one: these are the three things this
+   app is for, and hiding them behind a first click made the commonest of
+   them cost two. */
 .qb-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed var(--border-soft);
@@ -947,12 +1170,61 @@ body {
   font-size: 12px;
   color: #1c2229;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .qb-action:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* Readings are what an operator opened this app to get, so on a card that
+   can produce them that button is the one that looks like a button. */
+.qb-action-primary {
+  border-color: var(--kind);
+  background: var(--kind-soft);
+  color: var(--kind);
+  font-weight: 600;
+}
+
+.qb-action-primary:hover {
+  background: var(--kind);
+  border-color: var(--kind);
+  color: #ffffff;
+}
+
+.qb-action-quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+
+.qb-action-quiet:hover {
+  background: #fdf2f2;
+  border-color: #e0b4b4;
+  color: #a11;
+}
+
+/* Says what the ring around the selected card actually buys you. Without it
+   the selection is decoration, since the card's own actions no longer need
+   it. */
+.qb-attach {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--kind);
+}
+
+.qb-attach::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--kind);
 }
 
 .qb-canvas-footer {

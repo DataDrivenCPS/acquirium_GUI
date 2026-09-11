@@ -12,8 +12,17 @@
  * existing instance rather than by rebuilding it, so the layout stays put as
  * the user builds -- a graph that reshuffles on every keystroke is unusable.
  *
- * Two rules keep it readable at plant scale:
+ * Four rules keep it readable at plant scale:
  *
+ *   - **A node is a tile with its name underneath.** Names to the side made
+ *     the picture as wide as the longest label and left rows of text
+ *     colliding across the middle of the plant; underneath, the tiles line
+ *     up and the process chain is the thing you see first.
+ *   - **Containment is drawn differently from flow.** "Treatment System
+ *     contains Pump" is true of everything and says nothing about how water
+ *     moves, so those edges are dashed, pale and arrowless while flow edges
+ *     are solid and arrowed. Same information, one of them no longer
+ *     shouting.
  *   - **Connection labels are off by default.** A hub like "Treatment System"
  *     contains every unit in the plant, and a dozen copies of the word
  *     "contains" fanning out of one node is unreadable. Labels appear on the
@@ -22,6 +31,12 @@
  *   - **Hovering focuses.** The hovered node, its neighbours and the edges
  *     between them stay lit; the rest of the plant fades back rather than
  *     disappearing, so context is kept.
+ *
+ * Clicking a node opens a small menu rather than editing the query outright.
+ * It used to add a step immediately, which is fine when the query is empty
+ * and the only possible meaning is "start here", and opaque the moment it is
+ * not: the same click silently meant "and connect it to whichever card is
+ * selected". The menu says which, in words, before anything changes.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -29,9 +44,20 @@ import cytoscape from 'cytoscape'
 import type { Core } from 'cytoscape'
 
 import { PanelStatus } from '../components/Panel'
-import { FitIcon, TagIcon, ZoomInIcon, ZoomOutIcon } from '../components/icons'
+import {
+  CloseIcon,
+  ConnectionIcon,
+  EquipmentIcon,
+  FitIcon,
+  TagIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from '../components/icons'
 import { useQuery } from '../state/QueryContext'
 import { iconFor } from '../state/plantIcons'
+import { currentAlias, focusedAlias } from '../state/queryReducer'
+import type { QueryState } from '../state/queryReducer'
+import { stepLabel } from '../state/queryTree'
 import type { GraphNode } from '../api/types'
 
 /** Layout, in one place so the toolbar's re-fit matches the first run. */
@@ -39,7 +65,8 @@ const LAYOUT = {
   name: 'breadthfirst' as const,
   directed: true,
   padding: 40,
-  spacingFactor: 1.0,
+  // Room for a name sitting under each tile rather than beside it.
+  spacingFactor: 1.35,
   avoidOverlap: true,
   nodeDimensionsIncludeLabels: true,
 }
@@ -68,8 +95,8 @@ function orientToWindow(instance: Core) {
 }
 
 /** Keep the plant at a readable size however few or many nodes there are. */
-const MIN_ZOOM = 0.8
-const MAX_ZOOM = 1.3
+const MIN_ZOOM = 0.75
+const MAX_ZOOM = 1.25
 
 /**
  * The layout is run over the *flow* only.
@@ -97,6 +124,25 @@ function frameGraph(instance: Core) {
   if (instance.zoom() > MAX_ZOOM) instance.zoom({ level: MAX_ZOOM, renderedPosition: { x: instance.width() / 2, y: instance.height() / 2 } })
 }
 
+/** Where a node's menu goes, and what it needs to say. */
+interface NodeMenu extends HoveredNode {
+  id: string
+  /** Rendered position, i.e. pixels inside the canvas. */
+  x: number
+  y: number
+  /**
+   * Hang the menu under the node, or over it.
+   *
+   * Under is the default -- it leaves the tile and its name in view above
+   * the menu, which is how you check you clicked the right thing. A node in
+   * the bottom of the canvas has no room under it, so that one flips.
+   */
+  above: boolean
+}
+
+/** Clear of the tile (26px) and the name sitting under it. */
+const MENU_GAP = 54
+
 export function GraphPanel() {
   const { state, dispatch, graph, subgraph } = useQuery()
   const container = useRef<HTMLDivElement | null>(null)
@@ -104,28 +150,12 @@ export function GraphPanel() {
   const [showLabels, setShowLabels] = useState(false)
   /** What the pointer is over, for the detail card. */
   const [hovered, setHovered] = useState<HoveredNode | null>(null)
+  /** The node that was clicked, and what can be done with it. */
+  const [menu, setMenu] = useState<NodeMenu | null>(null)
 
   // Read inside Cytoscape's own handlers, which are bound once per model.
   const showLabelsRef = useRef(showLabels)
   showLabelsRef.current = showLabels
-
-  /**
-   * Clicking the plant builds the query.
-   *
-   * Held in a ref because the Cytoscape instance is built once per model and
-   * must not be rebuilt when the query changes -- the handler bound at build
-   * time would otherwise close over the query as it was then.
-   *
-   * The node id doubles as the class reference sent back in `cls`, which is
-   * the same contract the builder's suggestion chips rely on.
-   */
-  const onNodeTap = useRef<(id: string, label: string) => void>(() => undefined)
-  onNodeTap.current = (id, label) => {
-    const cls = { id, label }
-    // Nothing built yet: this is where the query starts. Otherwise it is a
-    // connection out of whichever card is selected.
-    dispatch({ type: 'add', kind: state.steps.length === 0 ? 'entity' : 'related', patch: { cls } })
-  }
 
   // Build once per model. The query changing must not land here.
   useEffect(() => {
@@ -143,7 +173,7 @@ export function GraphPanel() {
             kind: node.kind,
             count: node.instance_count,
             // Drawn inside the node. Tinted per kind so the glyph reads as
-            // part of the box rather than pasted on.
+            // part of the tile rather than pasted on.
             icon: iconFor(node, iconColour(node.kind)),
           },
         })),
@@ -152,46 +182,56 @@ export function GraphPanel() {
         })),
       ],
       style: [
-        // A node is the glyph in a tile, with its name beside it. Sizing the
-        // tile rather than the text is what makes the icon reliable: a node
-        // whose width comes from its label has nowhere to put a picture.
+        // A node is a tile with its name under it. Sizing the tile rather
+        // than the text is what makes the icon reliable: a node whose width
+        // comes from its label has nowhere to put a picture.
         {
           selector: 'node',
           style: {
             label: 'data(label)',
-            'text-valign': 'center',
-            'text-halign': 'right',
-            'text-margin-x': 7,
+            'text-valign': 'bottom',
+            'text-halign': 'center',
+            'text-margin-y': 7,
             'text-wrap': 'wrap',
-            'text-justification': 'left',
+            'text-max-width': '110px',
+            'text-justification': 'center',
             'font-size': 11,
             'font-weight': 600,
-            'line-height': 1.3,
-            color: '#1c2229',
+            'line-height': 1.35,
+            color: '#26303a',
             'text-background-color': '#f4f6f8',
-            'text-background-opacity': 0.85,
+            'text-background-opacity': 0.92,
             'text-background-padding': '3px',
             'text-background-shape': 'roundrectangle',
             'background-color': '#ffffff',
             'background-image': 'data(icon)',
             'background-fit': 'contain',
             'background-clip': 'node',
-            'background-width': '62%',
-            'background-height': '62%',
-            'border-width': 1.5,
-            'border-color': '#b9c4cf',
+            'background-width': '56%',
+            'background-height': '56%',
+            'border-width': 2,
+            'border-color': '#9fb1c2',
             shape: 'round-rectangle',
-            width: 40,
-            height: 40,
-            'transition-property': 'border-color, background-color, opacity',
+            width: 52,
+            height: 52,
+            'transition-property': 'border-color, background-color, opacity, border-width',
             'transition-duration': 120,
           },
         },
         // The same colours the builder's cards use, so a node and the card
         // that matched it read as the same kind of thing.
         {
+          selector: 'node[kind = "equipment"]',
+          style: { 'background-color': '#f3f8fd', 'border-color': '#7d9fc4' },
+        },
+        {
           selector: 'node[kind = "system"]',
-          style: { 'background-color': '#eef1f5', 'border-color': '#9aa7b4' },
+          style: {
+            'background-color': '#eef1f5',
+            'border-color': '#9aa7b4',
+            'border-style': 'dashed',
+            color: '#4a5661',
+          },
         },
         {
           selector: 'node[kind = "measurement"]',
@@ -202,12 +242,23 @@ export function GraphPanel() {
           style: {
             'curve-style': 'bezier',
             'target-arrow-shape': 'triangle',
-            'line-color': '#ccd4dc',
-            'target-arrow-color': '#ccd4dc',
-            width: 1.5,
-            'arrow-scale': 0.9,
+            'line-color': '#a9b8c6',
+            'target-arrow-color': '#a9b8c6',
+            width: 2,
+            'arrow-scale': 1,
             'transition-property': 'line-color, opacity, width',
             'transition-duration': 120,
+          },
+        },
+        // Containment, not flow: true of every unit in the plant and mute
+        // about how water moves through it, so it is drawn as background.
+        {
+          selector: 'edge.structural',
+          style: {
+            'line-color': '#dde4ea',
+            'line-style': 'dashed',
+            'target-arrow-shape': 'none',
+            width: 1.5,
           },
         },
         // Labels ride the line and carry a white backing, so they never sit
@@ -231,16 +282,34 @@ export function GraphPanel() {
           style: {
             'background-color': '#ffd479',
             'border-color': '#b8860b',
-            'border-width': 2.5,
+            'border-width': 3,
+            'border-style': 'solid',
             color: '#4a3607',
+            'text-background-color': '#fff6e2',
           },
         },
         {
           selector: 'edge.matched',
-          style: { 'line-color': '#b8860b', 'target-arrow-color': '#b8860b', width: 2.5 },
+          style: {
+            'line-color': '#b8860b',
+            'target-arrow-color': '#b8860b',
+            'line-style': 'solid',
+            width: 3,
+          },
         },
-        { selector: '.faded', style: { opacity: 0.2 } },
-        { selector: 'node.hovered', style: { 'border-color': '#26619c', 'border-width': 2.5 } },
+        { selector: '.faded', style: { opacity: 0.18 } },
+        { selector: 'node.hovered', style: { 'border-color': '#26619c', 'border-width': 3 } },
+        // The node whose menu is open, held lit while the menu is up. Border
+        // only: a matched node must keep its amber fill, or clicking one
+        // would read as having dropped it out of the query.
+        {
+          selector: 'node.picked',
+          style: {
+            'border-color': '#26619c',
+            'border-width': 4,
+            'border-style': 'solid',
+          },
+        },
       ],
       // The plant is explored, not edited: dragging a node would only undo
       // the layout.
@@ -251,6 +320,14 @@ export function GraphPanel() {
     })
     cy.current = instance
 
+    // Containment is decided by the nodes it joins, so it is classified once
+    // here rather than re-derived in a selector on every style pass.
+    instance.edges().forEach((edge) => {
+      if (edge.source().data('kind') === 'system' || edge.target().data('kind') === 'system') {
+        edge.addClass('structural')
+      }
+    })
+
     // breadthfirst is a discrete layout and does not animate, so positions
     // are final by the time run() returns.
     flowOnly(instance).layout(LAYOUT).run()
@@ -259,9 +336,37 @@ export function GraphPanel() {
 
     instance.on('tap', 'node', (event) => {
       const node = event.target
-      // The class label, not the relabelled instance one: what gets added is
-      // the class, and a query for "CF1" is a different thing entirely.
-      onNodeTap.current(node.id(), node.data('baseLabel'))
+      instance.nodes().removeClass('picked')
+      node.addClass('picked')
+      const at = node.renderedPosition()
+      setMenu({
+        id: node.id(),
+        // The class label, not the relabelled instance one: what gets added
+        // is the class, and a query for "CF1" is a different thing entirely.
+        label: node.data('baseLabel'),
+        kind: node.data('kind'),
+        count: node.data('count') ?? 1,
+        matched: node.hasClass('matched'),
+        matchedAs: node.data('instanceLabel') ?? null,
+        connections: node.closedNeighborhood().edges().length,
+        x: at.x,
+        y: at.y,
+        above: at.y > instance.height() * 0.62,
+      })
+    })
+
+    // Clicking the background is how you put the menu away.
+    instance.on('tap', (event) => {
+      if (event.target !== instance) return
+      instance.nodes().removeClass('picked')
+      setMenu(null)
+    })
+
+    // A menu pinned to a node has to go when the node moves out from under
+    // it; re-anchoring it mid-pan would be worse than dismissing it.
+    instance.on('viewport', () => {
+      instance.nodes().removeClass('picked')
+      setMenu(null)
     })
 
     instance.on('mouseover', 'node', (event) => {
@@ -270,6 +375,7 @@ export function GraphPanel() {
       instance.elements().not(near).addClass('faded')
       node.addClass('hovered')
       near.edges().addClass('labelled')
+      container.current?.classList.add('is-pointing')
 
       setHovered({
         label: node.data('baseLabel'),
@@ -287,14 +393,15 @@ export function GraphPanel() {
     instance.on('mouseout', 'node', () => {
       instance.elements().removeClass('faded')
       instance.nodes().removeClass('hovered')
+      container.current?.classList.remove('is-pointing')
       applyLabels(instance, showLabelsRef.current)
       setHovered(null)
     })
 
-    // The dock opening or collapsing changes the canvas size; Cytoscape has
-    // to be told, or it keeps drawing at the size it was built at. Re-framing
-    // afterwards is what stops half the plant ending up off-screen when the
-    // dock takes the left of the window.
+    // The dock opening, collapsing or being dragged wider changes the canvas
+    // size; Cytoscape has to be told, or it keeps drawing at the size it was
+    // built at. Re-framing afterwards is what stops half the plant ending up
+    // off-screen when the dock takes the left of the window.
     const observer = new ResizeObserver(() => {
       instance.resize()
       frameGraph(instance)
@@ -342,6 +449,21 @@ export function GraphPanel() {
     applyLabels(instance, showLabels)
   }, [subgraph.data, showLabels, graph.data])
 
+  const closeMenu = useCallback(() => {
+    cy.current?.nodes().removeClass('picked')
+    setMenu(null)
+  }, [])
+
+  // Escape closes the menu, as it does the settings dialog.
+  useEffect(() => {
+    if (!menu) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menu, closeMenu])
+
   const zoomBy = useCallback((factor: number) => {
     const instance = cy.current
     if (!instance) return
@@ -380,7 +502,21 @@ export function GraphPanel() {
         </button>
       </div>
 
-      {hovered && <NodeCard node={hovered} />}
+      {menu && (
+        <NodeMenuCard
+          menu={menu}
+          anchorLabel={anchorLabel(state)}
+          onClose={closeMenu}
+          onAdd={(kind) => {
+            dispatch({ type: 'add', kind, patch: { cls: { id: menu.id, label: menu.label } } })
+            closeMenu()
+          }}
+        />
+      )}
+
+      {/* One overlay at a time: the menu already says everything the hover
+          card would, and pinned rather than chasing the pointer. */}
+      {hovered && !menu && <NodeCard node={hovered} />}
 
       <Legend />
 
@@ -392,7 +528,7 @@ export function GraphPanel() {
             graph size limit in Settings to see more.
           </PanelStatus>
         )}
-        {!graph.error && state.steps.length === 0 && (
+        {!graph.error && state.steps.length === 0 && !menu && (
           <p className="graph-hint">Click any part of the plant to ask about it.</p>
         )}
       </div>
@@ -427,6 +563,20 @@ function applyLabels(instance: Core, showAll: boolean) {
   })
 }
 
+/**
+ * What a step added from the plant would attach to, in words.
+ *
+ * This is the thing the old click-to-add never said: "connected to" is only
+ * meaningful if you know what it is connecting to, and that was an invisible
+ * pointer. Mirrors the reducer's own default for an omitted `frm`.
+ */
+function anchorLabel(state: QueryState): string | null {
+  const alias = focusedAlias(state) ?? currentAlias(state.steps)
+  if (!alias) return null
+  const step = state.steps.find((candidate) => candidate.alias === alias)
+  return step ? stepLabel(step) : null
+}
+
 interface HoveredNode {
   label: string
   kind: GraphNode['kind']
@@ -436,24 +586,25 @@ interface HoveredNode {
   connections: number
 }
 
+function kindWord(kind: GraphNode['kind']): string {
+  return kind === 'system' ? 'System' : kind === 'measurement' ? 'Measurement' : 'Equipment'
+}
+
 /**
  * What the pointer is over, in words.
  *
- * The graph can only show so much inside a box. This is where the detail
+ * The graph can only show so much inside a tile. This is where the detail
  * goes -- how many real units the class stands for, how it is wired in, and
  * whether the current query has reached it.
  */
 function NodeCard({ node }: { node: HoveredNode }) {
-  const kindWord =
-    node.kind === 'system' ? 'System' : node.kind === 'measurement' ? 'Measurement' : 'Equipment'
-
   return (
     <div className="node-card">
       <p className="node-card-title">{node.matchedAs ?? node.label}</p>
       <dl className="node-card-facts">
         <div>
           <dt>Kind</dt>
-          <dd>{kindWord}</dd>
+          <dd>{kindWord(node.kind)}</dd>
         </div>
         <div>
           <dt>In this plant</dt>
@@ -473,6 +624,83 @@ function NodeCard({ node }: { node: HoveredNode }) {
             : 'Your query matches this.'}
         </p>
       )}
+      <p className="node-card-cue">Click to use it in your query.</p>
+    </div>
+  )
+}
+
+/**
+ * The clicked node, and what it can do to the query -- spelled out.
+ *
+ * With nothing built yet there is one sensible meaning and it is offered as
+ * one button. Once there is a query there are two, and the difference
+ * between them ("hang it off the Pump" versus "ask about it separately") is
+ * exactly what the old silent click had to guess at.
+ */
+function NodeMenuCard({
+  menu,
+  anchorLabel: anchor,
+  onAdd,
+  onClose,
+}: {
+  menu: NodeMenu
+  anchorLabel: string | null
+  onAdd: (kind: 'entity' | 'related') => void
+  onClose: () => void
+}) {
+  const started = anchor !== null
+
+  return (
+    <div
+      className={`node-menu${menu.above ? ' is-above' : ''}`}
+      style={{ left: menu.x, top: menu.y + (menu.above ? -MENU_GAP + 26 : MENU_GAP) }}
+      role="dialog"
+      aria-label={`${menu.label} — add to the query`}
+    >
+      <div className="node-menu-head">
+        <div>
+          <p className="node-menu-title">{menu.matchedAs ?? menu.label}</p>
+          <p className="node-menu-facts">
+            {kindWord(menu.kind)} · {menu.count} {menu.count === 1 ? 'unit' : 'units'} ·{' '}
+            {menu.connections} {menu.connections === 1 ? 'connection' : 'connections'}
+          </p>
+        </div>
+        <button type="button" className="qb-icon-button" title="Close" onClick={onClose}>
+          <CloseIcon />
+        </button>
+      </div>
+
+      <div className="node-menu-actions">
+        {!started ? (
+          <button type="button" className="node-menu-action is-primary" onClick={() => onAdd('entity')}>
+            <EquipmentIcon />
+            Show me every {menu.label}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="node-menu-action is-primary"
+              onClick={() => onAdd('related')}
+            >
+              <ConnectionIcon />
+              Connect it to {anchor}
+            </button>
+            <button type="button" className="node-menu-action" onClick={() => onAdd('entity')}>
+              <EquipmentIcon />
+              Ask about it separately
+            </button>
+          </>
+        )}
+      </div>
+
+      {menu.matched && (
+        <p className="node-menu-matched">
+          {menu.matchedAs
+            ? `Already in your query as ${menu.matchedAs}.`
+            : 'Already in your query.'}
+        </p>
+      )}
     </div>
   )
 }
@@ -486,12 +714,24 @@ function Legend() {
         Equipment
       </span>
       <span className="legend-item">
+        <span className="legend-swatch legend-measurement" />
+        Measurement
+      </span>
+      <span className="legend-item">
         <span className="legend-swatch legend-system" />
         System
       </span>
       <span className="legend-item">
         <span className="legend-swatch legend-matched" />
         In your query
+      </span>
+      <span className="legend-item">
+        <span className="legend-line" />
+        Flow
+      </span>
+      <span className="legend-item">
+        <span className="legend-line legend-line-structural" />
+        Contains
       </span>
     </div>
   )

@@ -65,6 +65,12 @@ The first run builds the interface, which takes a few seconds and needs
 [Node.js](https://nodejs.org) present; later runs start immediately, and it rebuilds only
 when a frontend source file is newer than the last build. `--no-build` skips the check.
 
+If port 5001 is already taken — almost always this app still running in another terminal —
+it says so in one line and stops, rather than printing the URL and then failing to bind.
+That matters more than it sounds: the browser at that URL keeps working, because the
+*earlier* instance is answering it, so a launch that errored can easily look like one that
+succeeded. Use `--port` to run a second copy alongside the first.
+
 ### While editing the frontend
 
 ```bash

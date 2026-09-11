@@ -35,10 +35,9 @@ export function QueryPanel() {
   const empty = state.steps.length === 0
 
   return (
-    <Panel
-      title="Query"
-      subtitle="Build a question, and the answer follows underneath it."
-    >
+    // No title: the dock's own tab says "Query", and a second copy of the
+    // word costs the builder a header's worth of height.
+    <Panel>
       <div className="sections">
         <Section
           title="Build"

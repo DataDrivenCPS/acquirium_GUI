@@ -35,6 +35,7 @@ from acquirium_gui.launcher import (
     ensure_frontend,
     find_frontend_dir,
     npm_executable,
+    port_in_use,
 )
 
 PACKAGE_DIR = Path(__file__).parent
@@ -57,6 +58,8 @@ def main() -> None:
         _run_dev(args, frontend_dir)
         return
 
+    _refuse_if_taken(args.host, args.port, what="Acquirium")
+
     ensure_frontend(STATIC_DIR, frontend_dir, allow_build=not args.no_build)
 
     if not (STATIC_DIR / "index.html").is_file():
@@ -75,6 +78,28 @@ def main() -> None:
         port=args.port,
         reload=args.reload,
     )
+
+
+def _refuse_if_taken(host: str, port: int, *, what: str) -> None:
+    """Stop before announcing a URL this process will not be serving.
+
+    Left to uvicorn, a port clash prints the URL, then several lines of
+    startup, then the bind error -- and if the thing holding the port is an
+    older copy of this app, the browser at that URL still works. The result
+    is a screenful of errors above an app that looks fine, and no way to tell
+    which instance is answering. Better to say so in one line and stop.
+    """
+    if not port_in_use(host, port):
+        return
+
+    print(
+        f"\nPort {port} is already in use, so {what} cannot start there. "
+        "That is usually this app still running from an earlier launch: whatever "
+        f"answers http://{host}:{port} right now is that instance, not this one.\n"
+        "Stop it, or start on another port with --port.\n",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 
 def _run_dev(args: argparse.Namespace, frontend_dir: Path | None) -> None:
@@ -98,10 +123,15 @@ def _run_dev(args: argparse.Namespace, frontend_dir: Path | None) -> None:
         raise SystemExit(2)
 
     if not (frontend_dir / "node_modules").is_dir():
-        print("Installing frontend dependencies (first run only)…", flush=True)
+        print("Installing frontend dependencies (first run only)...", flush=True)
         subprocess.run([npm, "install"], cwd=frontend_dir, check=True)
 
     api_port = args.port if args.port != DEFAULT_PORT else DEV_API_PORT
+    # Vite's own port is caught below, by its exiting immediately; the API's
+    # would otherwise only surface after Vite is already up and the URL has
+    # been printed.
+    _refuse_if_taken(args.host, api_port, what="the API")
+
     vite = subprocess.Popen([npm, "run", "dev"], cwd=frontend_dir)
 
     # If Vite cannot take its port -- usually a dev server left running from

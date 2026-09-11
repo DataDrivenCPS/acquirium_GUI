@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -79,6 +80,31 @@ def build_is_stale(static_dir: Path, frontend_dir: Path | None) -> bool:
     return any(source.stat().st_mtime > built_at for source in sources_of(frontend_dir))
 
 
+def port_in_use(host: str, port: int) -> bool:
+    """Whether uvicorn will fail to bind here.
+
+    Asked *before* the URL is printed. A second launch while the first is
+    still running otherwise announces the URL, fails to bind, and leaves the
+    older instance answering it -- a wall of errors above an app that looks
+    like it is working, which is worse than either a clean start or a clean
+    failure. It is the same hazard ``--dev`` already refuses for Vite's port,
+    and the same one this module exists to prevent for stale builds: an
+    invisible old server serving code nobody launched.
+
+    Mirrors what uvicorn does, ``SO_REUSEADDR`` included, so the answer here
+    is the answer it will get. This is advice rather than a reservation --
+    the socket is closed again immediately, so something could still take the
+    port in between -- but uvicorn's own error is still there as the backstop.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((host, port))
+        except OSError:
+            return True
+    return False
+
+
 def npm_executable() -> str | None:
     """npm's path, or None if it is not installed.
 
@@ -96,10 +122,10 @@ def build_frontend(frontend_dir: Path, *, npm: str) -> None:
     hung".
     """
     if not (frontend_dir / "node_modules").is_dir():
-        print("Installing frontend dependencies (first run only)…", flush=True)
+        print("Installing frontend dependencies (first run only)...", flush=True)
         subprocess.run([npm, "install"], cwd=frontend_dir, check=True)
 
-    print("Building the user interface…", flush=True)
+    print("Building the user interface...", flush=True)
     subprocess.run([npm, "run", "build"], cwd=frontend_dir, check=True)
 
 

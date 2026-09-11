@@ -2,15 +2,26 @@
 
 What actually runs -- uvicorn, npm, Vite -- is not exercised here; these are
 the choices it makes before any of that starts, which are the parts that can
-be wrong silently: whether a checkout has a frontend to build, and whether
-what was built is still current.
+be wrong silently: whether a checkout has a frontend to build, whether what
+was built is still current, and whether the one URL is actually free to
+serve on.
 """
 
 from __future__ import annotations
 
 import os
+import socket
+from pathlib import Path
 
-from acquirium_gui.launcher import build_is_stale, find_frontend_dir, sources_of
+import pytest
+
+from acquirium_gui import __main__, launcher
+from acquirium_gui.launcher import (
+    build_is_stale,
+    find_frontend_dir,
+    port_in_use,
+    sources_of,
+)
 
 
 def make_frontend(root) -> None:
@@ -96,6 +107,84 @@ class TestSources:
         # after this test and so contains the string being looked for.
         relative = {path.relative_to(frontend).parts[0] for path in sources_of(frontend)}
         assert "node_modules" not in relative
+
+
+class TestTheUrlIsFree:
+    """Whether anything is already answering on the port we are about to claim.
+
+    This is the check that keeps "one command, one URL" honest. Without it a
+    second launch prints the URL, fails to bind, and leaves the *previous*
+    instance answering it -- a wall of errors over an app that looks like it
+    is working, which is the most confusing outcome available.
+    """
+
+    def test_an_unused_port_is_free(self):
+        # Ask the OS for a port, then let go of it: whatever it hands out is
+        # one nothing else on this machine is using.
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+
+        assert port_in_use("127.0.0.1", port) is False
+
+    def test_a_port_something_is_listening_on_is_taken(self):
+        with socket.socket() as held:
+            held.bind(("127.0.0.1", 0))
+            held.listen()
+            port = held.getsockname()[1]
+
+            assert port_in_use("127.0.0.1", port) is True
+
+    def test_the_check_does_not_itself_hold_the_port(self):
+        """Twice in a row must agree, or the probe is the thing in the way."""
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+
+        assert port_in_use("127.0.0.1", port) is False
+        assert port_in_use("127.0.0.1", port) is False
+
+
+class TestItCanSayWhatItIsDoing:
+    """The launch messages must survive the console they are printed to.
+
+    Python encodes ``print`` output with the console's codepage, and a
+    Windows console is not reliably cp1252: cp437 and cp850 are still the
+    default in plenty of locales, and neither has an ellipsis or an em dash.
+    A message containing one does not degrade there -- ``print`` raises
+    ``UnicodeEncodeError`` and takes the launcher down with it, on the first
+    run, while installing dependencies. Cross-platform is one of the brief's
+    non-negotiables, so these two modules stay ASCII.
+    """
+
+    @pytest.mark.parametrize("module", [launcher, __main__])
+    def test_launch_messages_are_ascii(self, module):
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        offenders = sorted({character for character in source if ord(character) > 127})
+
+        assert offenders == [], (
+            f"{Path(module.__file__).name} contains {offenders}, which cannot be "
+            "printed to a cp437 or cp850 console"
+        )
+
+    def test_a_taken_port_stops_the_launch_and_says_why(self, capsys):
+        with socket.socket() as held:
+            held.bind(("127.0.0.1", 0))
+            held.listen()
+            port = held.getsockname()[1]
+
+            with pytest.raises(SystemExit) as stopped:
+                __main__._refuse_if_taken("127.0.0.1", port, what="Acquirium")
+
+        assert stopped.value.code == 1
+        message = capsys.readouterr().err
+        assert str(port) in message
+        # The point of the message: which instance the browser is talking to.
+        assert "already in use" in message
+
+        for codepage in ("cp1252", "cp437", "cp850"):
+            # Encodes without raising, which is the whole requirement.
+            message.encode(codepage)
 
 
 def _newest(frontend) -> float:

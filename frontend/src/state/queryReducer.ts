@@ -13,6 +13,7 @@
  */
 
 import type { AttrFilter, Direction, QueryDescription, QueryStep, Ref, StepKind } from '../api/types'
+import { isBlank } from './attributes'
 
 export interface QueryState {
   steps: QueryStep[]
@@ -203,9 +204,27 @@ export function aliasesBefore(steps: QueryStep[], stepId: string): string[] {
   return bindingAliases(index === -1 ? steps : steps.slice(0, index))
 }
 
-/** The payload sent to the backend. The counter is local bookkeeping only. */
+/**
+ * The payload sent to the backend. The counter is local bookkeeping only.
+ *
+ * Half-written conditions are left behind. A condition whose value has not
+ * been chosen yet is an unfinished sentence, not a constraint -- sent as one
+ * it reads as "medium is <nothing>", matches nothing, and blanks the results
+ * the instant someone starts narrowing them, which is the opposite of what
+ * they asked for. The condition stays in state and on its card, dashed, until
+ * it says something; it just does not get a vote yet.
+ *
+ * A `where()` left holding none of them goes with them -- an empty one
+ * narrows nothing and would still show up in the generated query.
+ */
 export function toDescription(state: QueryState): QueryDescription {
-  return { steps: state.steps }
+  const steps = state.steps
+    .map((step) =>
+      step.attrs.some(isBlank) ? { ...step, attrs: step.attrs.filter((attr) => !isBlank(attr)) } : step,
+    )
+    .filter((step) => step.kind !== 'where' || step.attrs.length > 0)
+
+  return { steps }
 }
 
 export function isEmpty(state: QueryState): boolean {
