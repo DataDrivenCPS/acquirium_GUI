@@ -48,15 +48,50 @@ Not implemented:
 
 One command, one terminal, one URL.
 
-```bash
-python -m venv .venv
-.venv/Scripts/python.exe -m pip install -e "backend[dev]"
-.venv/Scripts/python.exe -m acquirium_gui
+Windows:
+
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e "backend[dev]"
+.venv\Scripts\python.exe -m acquirium_gui
 ```
 
-(On macOS/Linux that is `.venv/bin/python` throughout. Installing the package also puts an
-`acquirium-gui` command on the PATH, so after the install the launch line is just
-`acquirium-gui`.)
+macOS / Linux:
+
+```bash
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -e "backend[dev]"
+.venv/bin/python -m acquirium_gui
+```
+
+Run the three lines **in that order**, and only the third one after the first time — the
+venv has to exist before anything is installed into it, and re-running the first line is
+not the harmless no-op it looks like (see below).
+
+Two Windows details, each of which produces an error that does not look like its cause:
+
+- **`py`, not `python`.** Windows ships an app-execution alias for `python.exe` that is a
+  zero-byte stub pointing at the Microsoft Store, so on a machine where Python came from
+  python.org and the alias was never turned off, `python -m venv` fails with `The system
+  cannot find the path specified` even though Python is installed and working. `py`, the
+  launcher bundled with the python.org installer, is not affected. (`Get-Command python`
+  tells you which one you have: a path under `WindowsApps` is the stub.)
+- **The version is pinned on purpose.** Bare `py` means "whichever Python is newest here",
+  and pointing that at a venv that already exists *replaces its interpreter while leaving
+  the installed packages alone*. Compiled wheels are built per Python version, so the venv
+  then fails on import with something like `No module named
+  'pydantic_core._pydantic_core'` — a missing-module error whose real cause is a
+  version mismatch. Pinning `-3.13` makes re-running the line a no-op instead.
+
+If a venv does end up in that state, rebuild rather than repair it:
+
+```powershell
+py -3.13 -m venv .venv --clear
+.venv\Scripts\python.exe -m pip install -e "backend[dev]"
+```
+
+Installing the package also puts an `acquirium-gui` command on the PATH, so after the
+install the launch line is just `acquirium-gui`.
 
 Open <http://127.0.0.1:5001>. That is the whole app: the API and the user interface from a
 single process on a single port, no Node runtime involved.

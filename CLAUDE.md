@@ -148,8 +148,13 @@ convention.
 Paths below are Windows (`.venv/Scripts/`); on macOS/Linux that is `.venv/bin/`.
 
 ```bash
-# once
-python -m venv .venv
+# once. Two Windows traps, both documented in README.md: `py` rather than
+# `python` (the bare name is usually the Store alias stub, which fails with
+# "The system cannot find the path specified"), and the version pinned rather
+# than bare `py` -- bare `py` re-points an *existing* venv at whatever Python
+# is newest and leaves its 3.13-built wheels behind, which surfaces later as
+# "No module named 'pydantic_core._pydantic_core'".
+py -3.13 -m venv .venv
 .venv/Scripts/python.exe -m pip install -e "backend[dev]"
 
 # the app: one command, one terminal, http://127.0.0.1:5001
