@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "acquirium-gui"
+version = "0.1.0"
+description = "A no-code query interface for Acquirium."
+# README and LICENSE live at the repository root, which hatchling will not
+# reference from outside the project directory. Set when the backend gets its
+# own copies, or when packaging moves to the repo root.
+license = "MIT"
+# 3.11 is the floor for tomllib. The eventual `acquirium` dependency needs
+# 3.12, so that constraint tightens when the live adapter lands.
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+# Not yet a hard dependency: nothing imports acquirium until the live adapter
+# in acquirium_gui/adapters/live.py is implemented.
+live = ["acquirium"]
+dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[project.scripts]
+acquirium-gui = "acquirium_gui.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["acquirium_gui"]
+# The built frontend ships inside the wheel. It is gitignored (it is build
+# output) but must be present when the wheel is built -- run `npm run build`
+# in ../frontend first.
+artifacts = ["acquirium_gui/static/**"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

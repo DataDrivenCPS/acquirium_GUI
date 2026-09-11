@@ -1,0 +1,1224 @@
+/* The plant graph is the workspace and fills the window; the dock (`.dock-*`)
+   floats over it and holds everything else behind tabs.
+
+   Two areas where the visuals *are* the interface, rather than decoration on
+   top of one: the query builder's cards (`.qb-*`), where the lines between
+   cards and the per-kind colours are what replaced a list of aliases, and the
+   graph itself. */
+
+:root {
+  --border: #d0d5da;
+  --border-soft: #e4e9ee;
+  --muted: #5c6772;
+  --bg-panel: #ffffff;
+  --bg-app: #f4f6f8;
+  --bg-sunken: #f7f9fb;
+
+  /* One colour per kind of step, used by the card, its icon badge and the
+     line joining it to its parent -- so "which of these is a measurement"
+     is answerable without reading anything. */
+  --equipment: #35618f;
+  --equipment-soft: #eaf1f8;
+  --connection: #1f7a68;
+  --connection-soft: #e4f3ef;
+  --measurement: #8a5a12;
+  --measurement-soft: #fbf0dc;
+  --accent: #26619c;
+  --accent-soft: #edf3fa;
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: #1c2229;
+  /* The workspace fills the window; only the dock and tables scroll. */
+  overflow: hidden;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* --- title bar ----------------------------------------------------------- */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  height: 44px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header h1 {
+  font-size: 15px;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.badge-warn {
+  border-color: #d9a441;
+  background: #fdf8ee;
+  color: #8a5b00;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #1c2229;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- the workspace ------------------------------------------------------- */
+
+/* The plant fills it; everything else floats on top. */
+.workspace {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Everything the plant gets: the workspace, less whatever the dock covers. */
+.stage {
+  position: absolute;
+  inset: 0 0 0 var(--dock-inset, 0px);
+}
+
+.graph {
+  position: absolute;
+  inset: 0;
+}
+
+.graph-canvas {
+  width: 100%;
+  height: 100%;
+  /* A faint grid, so panning and zooming read as movement over a surface
+     rather than nodes drifting on nothing. */
+  background-color: var(--bg-app);
+  background-image: radial-gradient(circle, #dbe1e7 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.graph-toolbar {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(16, 24, 32, 0.1);
+}
+
+.graph-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.graph-tool:hover {
+  background: var(--bg-sunken);
+  color: #1c2229;
+}
+
+.graph-tool.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.graph-notes {
+  position: absolute;
+  right: 52px;
+  bottom: 14px;
+  max-width: 320px;
+  text-align: right;
+  pointer-events: none;
+}
+
+.graph-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* --- what the pointer is over -------------------------------------------- */
+
+.node-card {
+  position: absolute;
+  left: 12px;
+  /* Sits directly above the legend, so the two never fight for the corner
+     and neither runs into the query bar across the top. */
+  bottom: 44px;
+  z-index: 2;
+  width: 210px;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--equipment);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(16, 24, 32, 0.12);
+  pointer-events: none;
+}
+
+.node-card-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.node-card-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.node-card-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.node-card-facts dt {
+  color: var(--muted);
+}
+
+.node-card-facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.node-card-matched {
+  margin: 8px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: #8a5b00;
+}
+
+/* --- legend --------------------------------------------------------------- */
+
+.legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1.5px solid;
+}
+
+.legend-equipment {
+  background: #ffffff;
+  border-color: #b9c4cf;
+}
+
+.legend-system {
+  background: #eef1f5;
+  border-color: #9aa7b4;
+}
+
+.legend-matched {
+  background: #ffd479;
+  border-color: #b8860b;
+}
+
+/* --- query bar ----------------------------------------------------------- */
+
+.query-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(720px, calc(100% - 24px));
+  padding: 7px 8px 7px 14px;
+  background: var(--bg-panel);
+  border: 1px solid #cfe0f0;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(16, 24, 32, 0.12);
+}
+
+.query-bar.is-empty {
+  border-color: var(--border);
+  border-left-color: var(--border);
+}
+
+.query-bar-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #17304a;
+}
+
+.query-bar.is-empty .query-bar-text {
+  color: var(--muted);
+}
+
+.query-bar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* --- the dock ------------------------------------------------------------ */
+
+.dock {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  bottom: 10px;
+  z-index: 4;
+  display: flex;
+  width: 440px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 32, 0.14);
+  overflow: hidden;
+}
+
+/* Collapsed, it is just the rail -- the plant gets the whole window. */
+.dock.is-collapsed {
+  width: auto;
+  bottom: auto;
+}
+
+.dock-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  flex-shrink: 0;
+  background: var(--bg-sunken);
+  border-right: 1px solid var(--border);
+}
+
+.dock.is-collapsed .dock-tabs {
+  border-right: 0;
+}
+
+.dock-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dock-tab:hover {
+  background: var(--bg-panel);
+  color: #1c2229;
+}
+
+.dock-tab.is-active {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dock-badge {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.dock-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  padding: 7px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dock-collapse:hover {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: #1c2229;
+}
+
+.dock-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Inside the dock a panel is the whole surface, so it drops its own frame. */
+.dock-body .panel {
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* --- settings dialog ----------------------------------------------------- */
+
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(16, 24, 32, 0.35);
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  background: var(--bg-panel);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(16, 24, 32, 0.3);
+}
+
+.modal .panel {
+  border: 0;
+  min-height: 0;
+}
+
+.app-error {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  margin: 0;
+  padding: 8px 12px;
+  background: #fdf2f2;
+  border: 1px solid #e0b4b4;
+  border-radius: 8px;
+}
+
+/* On a small window the dock takes the width and the plant sits behind it. */
+@media (max-width: 720px) {
+  .dock {
+    right: 10px;
+    width: auto;
+  }
+
+  .dock.is-collapsed {
+    right: auto;
+  }
+
+  /* The dock covers the window at this size, so the plant keeps all of it
+     and simply sits behind. */
+  .stage {
+    inset: 0;
+  }
+
+  .query-bar {
+    display: none;
+  }
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header h2 {
+  font-size: 13px;
+  margin: 0;
+}
+
+.panel-subtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.panel-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.panel-body {
+  padding: 12px;
+  overflow: auto;
+  flex: 1;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.status-error {
+  color: #a11;
+}
+
+/* --- the query tab's bands ----------------------------------------------- */
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 4px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid transparent;
+}
+
+.section.is-open .section-header {
+  border-bottom-color: var(--border);
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.section-toggle:hover {
+  color: #1c2229;
+}
+
+.section-title {
+  font-weight: 600;
+  color: #1c2229;
+}
+
+/* Says enough while collapsed to be worth collapsing. */
+.section-summary {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.section-body {
+  padding: 10px;
+}
+
+/* --- query builder ------------------------------------------------------ */
+
+/* The plain-English readback. Deliberately the first thing in the panel:
+   it is the check that does not require understanding any of the rest. */
+.qb-sentence {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--accent-soft);
+  border: 1px solid #cfe0f0;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #17304a;
+}
+
+.qb-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qb-node {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The rail every branch hangs off. */
+.qb-children {
+  margin: 6px 0 0 18px;
+  border-left: 2px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+.qb-branch {
+  position: relative;
+  padding: 6px 0 0 18px;
+}
+
+/* The stub joining the rail to this branch's label. */
+.qb-branch::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16px;
+  width: 14px;
+  height: 2px;
+  background: var(--border-soft);
+}
+
+/* What used to be an alias in a dropdown: the relationship, written on the
+   line that carries it. */
+.qb-link {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: var(--connection-soft);
+  color: var(--connection);
+}
+
+.qb-link-measurement {
+  background: var(--measurement-soft);
+  color: var(--measurement);
+}
+
+/* --- the card ------------------------------------------------------------ */
+
+.qb-card {
+  --kind: var(--equipment);
+  --kind-soft: var(--equipment-soft);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--kind);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 32, 0.05);
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.qb-card-related {
+  --kind: var(--connection);
+  --kind-soft: var(--connection-soft);
+}
+
+.qb-card-measurement {
+  --kind: var(--measurement);
+  --kind-soft: var(--measurement-soft);
+}
+
+.qb-card:hover {
+  box-shadow: 0 2px 8px rgba(16, 24, 32, 0.1);
+}
+
+/* The selected card is where the next step will attach, so it has to be
+   unmistakable -- it is the only thing left saying what `frm` used to. */
+.qb-card.is-selected {
+  border-color: var(--kind);
+  box-shadow: 0 0 0 3px var(--kind-soft), 0 2px 8px rgba(16, 24, 32, 0.1);
+}
+
+.qb-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.qb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--kind-soft);
+  color: var(--kind);
+}
+
+.qb-card-title {
+  display: flex;
+  flex-direction: column;
+  /* Shrink to the title, rather than stretching a picker across the card. */
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.qb-card-role {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.qb-title-select {
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--kind-soft);
+  color: #1c2229;
+  padding: 2px 4px;
+  max-width: 100%;
+}
+
+.qb-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: none;
+  border-radius: 5px;
+  padding: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.qb-icon-button:hover {
+  background: var(--bg-sunken);
+  border-color: var(--border);
+  color: #1c2229;
+}
+
+.qb-remove:hover {
+  color: #a11;
+  border-color: #e0b4b4;
+  background: #fdf2f2;
+}
+
+/* --- direction ----------------------------------------------------------- */
+
+/* Wraps rather than overflowing: the dock is narrow, and a clipped
+   "Upstream" is worse than a second row. */
+.qb-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.qb-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: none;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qb-segmented button:last-child {
+  border-right: 0;
+}
+
+.qb-segmented button:hover {
+  background: var(--bg-sunken);
+}
+
+.qb-segmented button.is-on {
+  background: var(--kind-soft);
+  color: var(--kind);
+  font-weight: 600;
+}
+
+/* --- conditions ---------------------------------------------------------- */
+
+.qb-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.qb-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.qb-chip.is-active {
+  border-color: var(--kind);
+  background: var(--kind-soft);
+}
+
+/* An unfinished condition is not narrowing anything yet, and says so. */
+.qb-chip.is-blank {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.qb-chip-label {
+  border: 0;
+  background: none;
+  padding: 2px 4px 2px 9px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.qb-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  padding: 2px 6px 2px 2px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.qb-chip-remove:hover {
+  color: #a11;
+}
+
+.qb-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* --- what you can do from here ------------------------------------------ */
+
+.qb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-soft);
+}
+
+.qb-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  padding: 4px 9px;
+  font-size: 12px;
+  color: #1c2229;
+  cursor: pointer;
+}
+
+.qb-action:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.qb-canvas-footer {
+  margin-top: 12px;
+}
+
+.qb-orphans {
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px dashed #d9a441;
+  border-radius: 6px;
+  background: #fdf8ee;
+}
+
+/* --- the empty state ----------------------------------------------------- */
+
+.qb-start {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 18px 16px;
+  text-align: center;
+  background: var(--bg-sunken);
+}
+
+.qb-start h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.qb-start-lead {
+  margin: 4px 0 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* What is actually installed in this plant, so an empty box is not a dead
+   end for someone who does not know its vocabulary. */
+.qb-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.qb-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #1c2229;
+}
+
+.qb-quick-chip:hover {
+  border-color: var(--equipment);
+  background: var(--equipment-soft);
+  color: var(--equipment);
+}
+
+.qb-start-field {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+/* --- free-text resolution ----------------------------------------------- */
+
+.resolve-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  /* The dock is narrow and clips what overflows it, so the field and its
+     dropdown take the card's width rather than running off the edge. */
+  width: 100%;
+  max-width: 100%;
+}
+
+.resolve-input {
+  width: 100%;
+}
+
+.resolve-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.resolve-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.resolved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resolved-label {
+  font-weight: 600;
+}
+
+.candidates {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  margin: 2px 0 0;
+  padding: 2px;
+  list-style: none;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  min-width: min(180px, 100%);
+  max-width: 100%;
+  max-height: 220px;
+  overflow: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* What is in this plant, as opposed to what the resolver matched. Held
+   apart visually so the disambiguation picker is never mistaken for it. */
+.candidates-browse {
+  border-style: dashed;
+}
+
+/* Name over kind, rather than side by side: two short lines fit a narrow
+   dock, where one long line would be clipped or wrapped mid-name. */
+.candidates button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.candidates button:hover {
+  background: #eef2f6;
+}
+
+.candidate-kind {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 11px;
+  max-width: 100%;
+}
+
+/* --- tables -------------------------------------------------------------- */
+
+.table-scroll {
+  overflow: auto;
+  max-height: 320px;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+th,
+td {
+  border: 1px solid var(--border);
+  padding: 3px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  background: #eef2f6;
+  position: sticky;
+  top: 0;
+}
+
+.table-footnote {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
+/* --- misc ---------------------------------------------------------------- */
+
+.code {
+  background: #12161b;
+  color: #e6edf3;
+  padding: 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  overflow: auto;
+  white-space: pre;
+}
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.settings input {
+  width: 120px;
+}
+
+/* A checkbox reads as one line with its label, not as a stacked field. */
+.settings-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-check input {
+  width: auto;
+}
+
+.settings-check .hint {
+  grid-column: 2;
+}
+
+.settings-drawer {
+  max-width: 640px;
+}
+
+.llm {
+  display: flex;
+  gap: 6px;
+}
+
+.llm input {
+  flex: 1;
+}
+
+button.link {
+  border: 0;
+  background: none;
+  color: #26619c;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

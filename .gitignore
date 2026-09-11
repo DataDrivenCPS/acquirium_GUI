@@ -216,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Node / frontend (added for the React+TypeScript frontend) ---
+node_modules/
+.vite/
+*.tsbuildinfo
+vite.config.ts.timestamp-*
+npm-debug.log*
+yarn-error.log*
+.eslintcache
+
+# The Vite build output is written to backend/acquirium_gui/static/ (NOT dist/),
+# because GitHub's Python .gitignore template above ignores dist/ and those
+# built assets have to ship inside the wheel. Ignored in git, produced by
+# `npm run build`, included in the package by pyproject.toml.
+backend/acquirium_gui/static/
+
+# Local runtime config written by PUT /api/config
+acquirium-gui.toml
+
+# Playwrite (Claude tool)
+.playwright-mcp
