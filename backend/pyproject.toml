@@ -2,15 +2,17 @@
 name = "acquirium-backend"
 version = "0.1.0"
 description = "FastAPI backend for Acquirium GUI"
-readme = None
+readme = "README.md"
 requires-python = ">=3.12"
+
 authors = [
     { name = "Lucas Hoke", email = "lhoke@mines.edu" },
     { name = "Ari Derritt", email = "arijaye_derritt@mines.edu" },
     { name = "Liam O'Byrne", email = "liam_obyrne@mines.edu" },
     { name = "Victoria Potts", email = "vpotts@mines.edu" }
 ]
-classifiers = 
+
+classifiers = [
     "Programming Language :: Python :: 3",
     "Framework :: FastAPI",
     "License :: MIT License",
