@@ -1,5 +1,9 @@
 # Tests
 
+```
+./.venv/bin/python -m pytest
+```
+
 Our TDD workflow should be:
 - Write failing tests to ensure desired function implementation.
 - Implement functions to pass tests.
