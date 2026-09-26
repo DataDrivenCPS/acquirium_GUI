@@ -8,9 +8,14 @@ class TestServerClass:
 
     @classmethod
     def setup_class(self):
-        
-        # Defines the server we are testing
+
+        # Defines the FastAPI TestClient
         self.test_client = TestClient(app=app)
+        self.test_client.__enter__() 
+
+    @classmethod
+    def teardown_class(self):
+        self.test_client.__exit__(None, None, None)
 
     # Assert that we can access the FastAPI root endpoint at least 5 seconds after it is started
     def test_fastapi_server_start(self):
@@ -40,4 +45,4 @@ class TestServerClass:
 
         assert response is not None
         assert response.status_code == 200
-        assert response.json() == {"status": "OK"}
+        assert response.json() == {"ok": True}
