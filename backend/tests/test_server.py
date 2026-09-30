@@ -1,6 +1,7 @@
 import time
 from fastapi.testclient import TestClient
 from src.server import app
+import pytest
 
 class TestServerClass:
 
@@ -18,6 +19,7 @@ class TestServerClass:
         self.test_client.__exit__(None, None, None)
 
     # Assert that we can access the FastAPI root endpoint at least 5 seconds after it is started
+    @pytest.mark.slow
     def test_fastapi_server_start(self):
 
         time.sleep(5.0)
@@ -27,6 +29,7 @@ class TestServerClass:
 
     # Assert that we can reach the Acquirium Server through the FastAPI Server
     # at least 5 minutes after starting the FastAPI server via polling a health endpoint
+    @pytest.mark.slow
     def test_fastapi_acquirium_integration(self):
 
         timeout = 300.0  # 5 minute timeout
