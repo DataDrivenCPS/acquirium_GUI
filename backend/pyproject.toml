@@ -20,7 +20,9 @@ classifiers = [
 
 # Track your primary open-source dependencies directly inside the TOML
 dependencies = [
+    "acquirium",
     "fastapi>=0.141.1",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
@@ -28,3 +30,12 @@ dependencies = [
 dev = [
     "pytest>=9.1.1"
 ]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+]
+
+[tool.uv.sources]
+acquirium = { path = "/Users/ariderritt/Desktop/csm_fierro/acquirium", editable = true }
