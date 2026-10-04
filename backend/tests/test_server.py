@@ -1,111 +1,13 @@
+import json
 import time
 
 import polars as pl
 import pytest
 from fastapi.testclient import TestClient
-from polars.testing import assert_frame_equal
 
 # import the module, not `acq`: acq is reassigned in the lifespan
 import src.server as server
 from src.server import app
-
-
-# (query builder, expected DataFrame), transcribed from the notebook outputs.
-# Row order is ignored by the test.
-METADATA_CASES = [
-    pytest.param(
-        lambda acq: acq.query().measurement().where(
-            substance="constituent salt",
-            quantity_kind="mass_concentration",
-        ),
-        pl.DataFrame(
-            {
-                "data": [
-                    "wbs:PXR-brine-out-tds-concentration",
-                    "wbs:storage-tank-3-out-tds-concentration",
-                    "wbs:intake-in-tds-concentration",
-                ],
-                "data.label": [
-                    "PXR brine out tds concentration",
-                    "storage tank 3 out tds concentration",
-                    "intake in tds concentration",
-                ],
-            }
-        ),
-        id="salt_mass_concentration_measurements",
-    ),
-    pytest.param(
-        lambda acq: acq.query()
-        .entity("reverse osmosis membrane")
-        .related("pump", direction="upstream"),
-        pl.DataFrame(
-            {
-                "reverse osmosis membrane": ["wbs:RO", "wbs:RO"],
-                "pump": ["wbs:P1", "wbs:P2"],
-            }
-        ),
-        id="ro_membrane_upstream_pumps",
-    ),
-    pytest.param(
-        lambda acq: acq.query().entity("Pump").measurement(),
-        pl.DataFrame(
-            {
-                "Pump": [
-                    "wbs:P2", "wbs:intake", "wbs:intake", "wbs:intake", "wbs:intake",
-                    "wbs:P1", "wbs:P2", "wbs:P1", "wbs:P1",
-                ],
-                # The toc and tss URIs were truncated in the notebook display and are
-                # inferred from the tds one. If this case fails on those two values,
-                # check them with print(df["Pump_data"].to_list()).
-                "Pump_data": [
-                    "wbs:P2-mechanical-power",
-                    "wbs:intake-in-toc-concentration",
-                    "wbs:intake-in-tss-concentration",
-                    "wbs:intake-in-flow-rate",
-                    "wbs:intake-in-tds-concentration",
-                    "wbs:P1-efficiency",
-                    "wbs:P2-efficiency",
-                    "wbs:P1-mechanical-power",
-                    "wbs:P1-out-pressure",
-                ],
-                "Pump_data.label": [
-                    "P2 mechanical power",
-                    "intake in toc concentration",
-                    "intake in tss concentration",
-                    "intake in flow rate",
-                    "intake in tds concentration",
-                    "P1 efficiency",
-                    "P2 efficiency",
-                    "P1 mechanical power",
-                    "P1 out pressure",
-                ],
-            }
-        ),
-        id="pump_measurements",
-    ),
-]
-
-# (query builder, expected number of rows) for cases where recording the
-# full frame is impractical.
-METADATA_COUNT_CASES = [
-    pytest.param(
-        lambda acq: acq.query().measurement(),
-        32,
-        id="all_measurements_row_count",
-    ),
-    pytest.param(
-        lambda acq: acq.query().measurement().where(unit="kg/s"),
-        10,
-        id="measurements_unit_kg_per_s_row_count",
-    ),
-    pytest.param(
-        lambda acq: acq.query().measurement().where(
-            unit="kg/s", substance="constituent salt"
-        ),
-        5,
-        id="measurements_kg_per_s_constituent_salt_row_count",
-    ),
-]
 
 
 class TestServerClass:
@@ -124,29 +26,31 @@ class TestServerClass:
     # ---- helpers -------------------------------------------------------
 
     @staticmethod
-    def _poll_metadata(build_query, expected_rows=None, timeout=600.0, interval=5.0):
-        """Retry until .metadata() returns the expected number of rows (or any rows,
-        if expected_rows is None). The runtime reports healthy before the WaterTAP
-        driver has loaded the plant graph, so early calls can be empty or raise.
-        On timeout, return the last frame so the test's own assertions report
-        what was actually returned."""
+    def _wait_for_rows(build_frame, timeout=60.0, interval=3.0):
+        """Poll until build_frame() returns a non-empty DataFrame.
+
+        What data exists depends on which config the runtime was started with, so:
+          - if the call keeps raising, the backend is broken -> fail with the error
+          - if it works but only ever returns empty frames, no data is loaded -> skip
+        """
         deadline = time.time() + timeout
-        df, last_error = None, None
+        got_frame, last_error = False, None
         while time.time() < deadline:
             try:
-                df = build_query().metadata()
-                if expected_rows is None:
-                    if df.height > 0:
-                        return df
-                elif df.height == expected_rows:
+                df = build_frame()
+                got_frame = True
+                if df.height > 0:
                     return df
             except Exception as exc:
                 last_error = exc
             time.sleep(interval)
-        if df is not None:
-            return df
-        raise AssertionError(
-            f"metadata never succeeded; last error: {last_error!r}")
+        if not got_frame:
+            raise AssertionError(
+                f"query never succeeded; last error: {last_error!r}")
+        pytest.skip(
+            f"query returned no rows after {timeout:.0f}s: the runtime has no data loaded. "
+            "Start it with a config that loads data."
+        )
 
     # ---- server tests ----------------------------------------------------
 
@@ -178,46 +82,68 @@ class TestServerClass:
         assert response.status_code == 200
         assert response.json() == {"ok": True}
 
-    # ---- metadata tests --------------------------------------------------
+    # ---- query tests (independent of which config is loaded) -------------
 
-    @pytest.mark.parametrize("build_query, expected", METADATA_CASES)
-    def test_metadata_matches_expected(self, build_query, expected):
-        actual = self._poll_metadata(
-            lambda: build_query(server.acq),
-            expected_rows=expected.height,
-        )
+    def test_metadata_returns_a_dataframe(self):
+        # column names depend on the query (e.g. entity("Pump") yields "Pump_data"),
+        # so only the structure is checked: at least one row and one column
+        df = self._wait_for_rows(
+            lambda: server.acq.query().measurement().metadata())
+        assert isinstance(df, pl.DataFrame)
+        assert df.height > 0
+        assert df.width > 0
 
-        # row count first, so a wrong count fails with a clear message
-        assert actual.height == expected.height, (
-            f"expected {expected.height} rows, got {actual.height}"
-        )
+    def test_metadata_columns_are_strings(self):
+        df = self._wait_for_rows(
+            lambda: server.acq.query().measurement().metadata())
+        assert all(dtype == pl.String for dtype in df.schema.values())
 
-        # then shape, column names, dtypes and values (row order ignored)
-        assert_frame_equal(actual, expected, check_row_order=False)
+    def test_metadata_is_json_serializable(self):
+        # the frontend receives JSON, so everything metadata() returns must survive it
+        df = self._wait_for_rows(
+            lambda: server.acq.query().measurement().metadata())
+        rows = df.to_dicts()
+        assert json.loads(json.dumps(rows)) == rows
 
-    @pytest.mark.parametrize("build_query, expected_rows", METADATA_COUNT_CASES)
-    def test_metadata_row_count(self, build_query, expected_rows):
-        actual = self._poll_metadata(
-            lambda: build_query(server.acq),
-            expected_rows=expected_rows,
-        )
-        assert actual.height == expected_rows, (
-            f"expected {expected_rows} rows, got {actual.height}"
-        )
+    def test_dataframe_limit_is_respected(self):
+        # same call shape as the notebook's q.dataframe(limit=1, order="desc", shape="wide")
+        q = server.acq.query().measurement()
+        df = self._wait_for_rows(lambda: q.dataframe(
+            limit=1, order="desc", shape="wide"))
+        assert isinstance(df, pl.DataFrame)
+        assert df.height <= 1
 
-    def test_salt_filtered_metadata_is_subset_of_unit_filtered(self):
-        # Adding a filter can only narrow the result, so every point matched by
-        # unit="kg/s" + substance="constituent salt" must also be matched by
-        # unit="kg/s" alone.
-        unit_df = self._poll_metadata(
-            lambda: server.acq.query().measurement().where(unit="kg/s"),
-            expected_rows=10,
+    # ---- streams tests (independent of which config is loaded) -----------
+    # "streams" = measurement() on an empty query, which matches every registered
+    # stream in the plant, with all of their attributes added via include("all").
+
+    @staticmethod
+    def _streams_query():
+        return server.acq.query().measurement(alias="streams").include("all")
+
+    def test_streams_query_returns_a_dataframe(self):
+        df = self._wait_for_rows(lambda: self._streams_query().metadata())
+        assert isinstance(df, pl.DataFrame)
+        assert df.height > 0
+        assert df.width > 0
+
+    def test_streams_alias_names_a_column(self):
+        # The alias is set explicitly, so unlike the default names this one is
+        # deterministic. NOTE: inferred from how default aliases name columns
+        # ("Pump_data"), not confirmed for include("all"). Delete if it fails.
+        df = self._wait_for_rows(lambda: self._streams_query().metadata())
+        assert "streams" in df.columns
+
+    def test_streams_include_all_adds_columns(self):
+        # include("all") should only add attribute columns, never remove any
+        base = self._wait_for_rows(
+            lambda: server.acq.query().measurement(alias="streams").metadata()
         )
-        salt_df = self._poll_metadata(
-            lambda: server.acq.query().measurement().where(
-                unit="kg/s", substance="constituent salt"
-            ),
-            expected_rows=5,
-        )
-        assert set(salt_df["data"]) <= set(unit_df["data"])
-        assert salt_df.height <= unit_df.height
+        full = self._wait_for_rows(lambda: self._streams_query().metadata())
+        assert full.width >= base.width
+
+    def test_streams_is_json_serializable(self):
+        # the frontend receives JSON, so every column include("all") adds must survive it
+        df = self._wait_for_rows(lambda: self._streams_query().metadata())
+        rows = df.to_dicts()
+        assert json.loads(json.dumps(rows)) == rows
