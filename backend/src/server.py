@@ -10,6 +10,7 @@ config = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global acq, config
+    # TODO: fix when backend is connected to frontend
     # config path is piped through stdin until the GUI provides one
     config = load_config(sys.stdin.readline().strip())
     acq = acquirium_lib.init(config=config['path'])

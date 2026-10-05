@@ -70,7 +70,7 @@ def test_load_config_non_toml(write_txt):
     with pytest.raises(ConfigError, match="The config file must be a .toml file."):
         load_config(path)
 
-# Assert that a config that is incomplete/has errors is not loaded and server is shutdown
+# Assert that a config that is incomplete/has errors is not loaded
 @pytest.mark.fast
 def test_load_config_error(write_toml):
     path = write_toml(BAD)
