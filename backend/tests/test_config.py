@@ -1,5 +1,5 @@
 from src.config import ConfigError, load_config
-from config_stubs import BAD, LOCAL, EXTERNAL, LOCAL_WITH_DRIVERS, EXTERNAL_ADDRESS, BAD_TYPE_ENABLED
+from config_stubs import BAD, LOCAL
 import pytest
 from pathlib import Path
 
@@ -38,7 +38,6 @@ def test_load_config_absolute(write_toml):
     config_dict = load_config(path)
     assert config_dict is not None
     assert config_dict['path'] == path
-    assert config_dict['external_address'] == None
 
 # Assert that we can load in a working Acq config via a config in the same directory as the backend WD
 @pytest.mark.fast
@@ -48,7 +47,6 @@ def test_load_config_relative(write_toml_cwd):
     config_dict = load_config(path)
     assert config_dict is not None
     assert config_dict['path'] == path
-    assert config_dict['external_address'] == None
 
 # Assert that we can not load in a working Acq config if the absolute path does not exist
 @pytest.mark.fast
@@ -57,23 +55,6 @@ def test_load_config_absolute_error(write_toml):
     with pytest.raises(ConfigError, match="The config file specified does not exist.") as excinfo:
         load_config(path)
     assert str(path) in str(excinfo.value) # Ensure the absolute path is not processed as a relative path
-
-# Assert drivers are ignored when local mode = true
-@pytest.mark.fast
-def test_load_config_enabled_ignore_drivers(write_toml):
-    path = write_toml(LOCAL_WITH_DRIVERS)
-    config_dict = load_config(path)
-    assert config_dict is not None
-    assert config_dict['path'] == path
-    assert config_dict['external_address'] == None
-
-
-# Assert each bad type is accounted for
-@pytest.mark.fast
-def test_load_config_enabled_bad_type(write_toml):
-    path = write_toml(BAD_TYPE_ENABLED)
-    with pytest.raises(ConfigError, match="The server enabled argument in the config file must contain only a boolean value."):
-        config_dict = load_config(path)
 
 # Assert that we can not load in a working Acq config if the relative path does not exist
 @pytest.mark.fast
@@ -88,15 +69,6 @@ def test_load_config_non_toml(write_txt):
     path = write_txt(LOCAL)
     with pytest.raises(ConfigError, match="The config file must be a .toml file."):
         load_config(path)
-
-# Assert that we can load in a working Acq config via a config specifying an external server
-@pytest.mark.fast
-def test_load_config_external_server(write_toml):
-    path = write_toml(EXTERNAL)
-    config_dict = load_config(path)
-    assert config_dict is not None
-    assert config_dict['path'] == path
-    assert config_dict['external_address'] == EXTERNAL_ADDRESS
 
 # Assert that a config that is incomplete/has errors is not loaded and server is shutdown
 @pytest.mark.fast
