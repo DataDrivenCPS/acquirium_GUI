@@ -1,13 +1,18 @@
+import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import acquirium as acquirium_lib
+from src.config import load_config
 
 acq = None
+config = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global acq
-    acq = acquirium_lib.init()
+    global acq, config
+    # config path is piped through stdin until the GUI provides one
+    config = load_config(sys.stdin.readline().strip())
+    acq = acquirium_lib.init(config=config['path'])
     try:
         yield
     finally:
