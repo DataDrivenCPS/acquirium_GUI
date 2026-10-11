@@ -28,3 +28,9 @@ dependencies = [
 dev = [
     "pytest>=9.1.1"
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "fast: Quick unit tests that run instantly.",
+    "slow: Integration or heavy tests that take time."
+]
