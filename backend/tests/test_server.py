@@ -1,13 +1,29 @@
 import json
-import time
-
 import polars as pl
-import pytest
-from fastapi.testclient import TestClient
 
 # import the module, not `acq`: acq is reassigned in the lifespan
 import src.server as server
+import io
+import socket
+import sys
+import tempfile
+import time
+from pathlib import Path
+from urllib.parse import urlsplit
+from fastapi.testclient import TestClient
+from src.config import ConfigError
 from src.server import app
+from config_stubs import PORTED
+import pytest
+import src.server as server
+
+# Asserts that a missing config path piped through stdin aborts server startup
+@pytest.mark.fast
+def test_fastapi_startup_bad_config(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("FakeDirectory/missing.toml\n"))
+    with pytest.raises(ConfigError, match="The config file specified does not exist."):
+        with TestClient(app=app):
+            pass
 
 
 class TestServerClass:
@@ -15,16 +31,30 @@ class TestServerClass:
     test_client = None
 
     @classmethod
-    def setup_class(cls):
-        cls.test_client = TestClient(app=app)
-        cls.test_client.__enter__()  # runs the lifespan, which sets server.acq
+    def setup_class(self):
+
+        # pipes a valid config path through stdin for the server lifespan to read
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        config_path = Path(self.tmp_dir.name) / "acquirium.toml"
+
+        # asks the OS for a free port to configure the server with
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            self.port = sock.getsockname()[1]
+        config_path.write_text(PORTED.format(port=self.port))
+        self.real_stdin = sys.stdin
+        sys.stdin = io.StringIO(f"{config_path}\n")
+
+        # Defines the FastAPI TestClient
+        self.test_client = TestClient(app=app)
+        self.test_client.__enter__() 
 
     @classmethod
-    def teardown_class(cls):
-        cls.test_client.__exit__(None, None, None)
-
-    # ---- helpers -------------------------------------------------------
-
+    def teardown_class(self):
+        self.test_client.__exit__(None, None, None)
+        sys.stdin = self.real_stdin
+        self.tmp_dir.cleanup()
+        
     @staticmethod
     def _wait_for_rows(build_frame, timeout=60.0, interval=3.0):
         """Poll until build_frame() returns a non-empty DataFrame.
@@ -52,9 +82,9 @@ class TestServerClass:
             "Start it with a config that loads data."
         )
 
-    # ---- server tests ----------------------------------------------------
 
     # Assert that we can access the FastAPI root endpoint at least 5 seconds after it is started
+    @pytest.mark.slow
     def test_fastapi_server_start(self):
         time.sleep(5.0)
         response = self.test_client.get("/")
@@ -63,6 +93,7 @@ class TestServerClass:
 
     # Assert that we can reach the Acquirium Server through the FastAPI Server
     # at least 5 minutes after starting the FastAPI server via polling a health endpoint
+    @pytest.mark.slow
     def test_fastapi_acquirium_integration(self):
         timeout = 300.0  # 5 minute timeout
         start_time = time.time()
@@ -147,3 +178,5 @@ class TestServerClass:
         df = self._wait_for_rows(lambda: self._streams_query().metadata())
         rows = df.to_dicts()
         assert json.loads(json.dumps(rows)) == rows
+        # the Acquirium server must be listening on the port from the config
+        assert urlsplit(server.acq.address).port == self.port
