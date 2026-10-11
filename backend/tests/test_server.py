@@ -114,7 +114,7 @@ class TestServerClass:
         assert response.json() == {"ok": True}
 
     # ---- query tests (independent of which config is loaded) -------------
-
+    @pytest.mark.configneeded
     def test_metadata_returns_a_dataframe(self):
         # column names depend on the query (e.g. entity("Pump") yields "Pump_data"),
         # so only the structure is checked: at least one row and one column
@@ -124,11 +124,13 @@ class TestServerClass:
         assert df.height > 0
         assert df.width > 0
 
+    @pytest.mark.configneeded
     def test_metadata_columns_are_strings(self):
         df = self._wait_for_rows(
             lambda: server.acq.query().measurement().metadata())
         assert all(dtype == pl.String for dtype in df.schema.values())
 
+    @pytest.mark.configneeded
     def test_metadata_is_json_serializable(self):
         # the frontend receives JSON, so everything metadata() returns must survive it
         df = self._wait_for_rows(
@@ -136,6 +138,7 @@ class TestServerClass:
         rows = df.to_dicts()
         assert json.loads(json.dumps(rows)) == rows
 
+    @pytest.mark.configneeded
     def test_dataframe_limit_is_respected(self):
         # same call shape as the notebook's q.dataframe(limit=1, order="desc", shape="wide")
         q = server.acq.query().measurement()
@@ -148,16 +151,19 @@ class TestServerClass:
     # "streams" = measurement() on an empty query, which matches every registered
     # stream in the plant, with all of their attributes added via include("all").
 
+    @pytest.mark.configneeded
     @staticmethod
     def _streams_query():
         return server.acq.query().measurement(alias="streams").include("all")
 
+    @pytest.mark.configneeded
     def test_streams_query_returns_a_dataframe(self):
         df = self._wait_for_rows(lambda: self._streams_query().metadata())
         assert isinstance(df, pl.DataFrame)
         assert df.height > 0
         assert df.width > 0
 
+    @pytest.mark.configneeded
     def test_streams_alias_names_a_column(self):
         # The alias is set explicitly, so unlike the default names this one is
         # deterministic. NOTE: inferred from how default aliases name columns
@@ -165,6 +171,7 @@ class TestServerClass:
         df = self._wait_for_rows(lambda: self._streams_query().metadata())
         assert "streams" in df.columns
 
+    @pytest.mark.configneeded
     def test_streams_include_all_adds_columns(self):
         # include("all") should only add attribute columns, never remove any
         base = self._wait_for_rows(
@@ -173,6 +180,7 @@ class TestServerClass:
         full = self._wait_for_rows(lambda: self._streams_query().metadata())
         assert full.width >= base.width
 
+    @pytest.mark.configneeded
     def test_streams_is_json_serializable(self):
         # the frontend receives JSON, so every column include("all") adds must survive it
         df = self._wait_for_rows(lambda: self._streams_query().metadata())
