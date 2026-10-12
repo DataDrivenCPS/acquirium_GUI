@@ -206,3 +206,15 @@ class TestServerClass:
         assert json.loads(json.dumps(rows)) == rows
         # the Acquirium server must be listening on the port from the config
         assert urlsplit(server.acq.address).port == self.port
+
+
+# The server in this class loads the WaterTAP parquet data, so it needs an
+# Acquirium checkout; the watertap_server fixture skips the class without one
+class TestWatertapServer:
+
+    # Asserts the server started from the WaterTAP config reports healthy
+    @pytest.mark.slow
+    def test_watertap_server_is_healthy(self, watertap_server):
+        response = watertap_server.get("/server-health")
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
