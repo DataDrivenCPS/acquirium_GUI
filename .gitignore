@@ -186,7 +186,7 @@ cython_debug/
 #   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #   and can be added to the global gitignore or merged into this file.  For a more nuclear
 #   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
+.idea/
 
 # Abstra
 #   Abstra is an AI-powered process automation framework.
@@ -219,3 +219,10 @@ __marimo__/
 
 # Acquirium directory built on first launch
 .acquirium/
+
+# Built output of the old prototype's frontend (its source lives on branch react+typescript_Liam)
+backend/acquirium_gui/static/
+
+# The repo root has no package.json (the launcher is in frontend/); npm run here by mistake leaves these
+/package-lock.json
+/node_modules/
