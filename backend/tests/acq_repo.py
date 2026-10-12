@@ -1,4 +1,5 @@
 import os
+import socket
 from pathlib import Path
 
 from config_stubs import WATERTAP_PARQUET
@@ -40,3 +41,10 @@ def write_watertap_config(directory: Path, port: int, repo: Path) -> Path:
     config_path = directory / "acquirium.toml"
     config_path.write_text(WATERTAP_PARQUET.format(port=port, acq_repo=repo))
     return config_path
+
+
+# Asks the OS for a free port to configure a server with
+def free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]

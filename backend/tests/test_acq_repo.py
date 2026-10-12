@@ -1,3 +1,4 @@
+import socket
 import tomllib
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from acq_repo import (
     WATERTAP_DATA_DIR,
     WATERTAP_REQUIRED_FILES,
     find_acquirium_repo,
+    free_port,
     watertap_skip_reason,
     write_watertap_config,
 )
@@ -50,6 +52,15 @@ def test_watertap_skip_reason_explains_missing_files(tmp_path):
 
     # the folder exists but is empty, so the WaterTAP files are missing
     assert str(tmp_path) in watertap_skip_reason(tmp_path)
+
+
+# Asserts free_port returns a valid port number that can be bound right away
+@pytest.mark.fast
+def test_free_port_returns_bindable_port():
+    port = free_port()
+    assert 1 <= port <= 65535
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", port))
 
 
 # Asserts the written config file holds the given port and points into the checkout
