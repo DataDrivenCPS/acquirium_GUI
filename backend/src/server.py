@@ -1,3 +1,4 @@
+import os
 import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -10,9 +11,9 @@ config = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global acq, config
-    # TODO: fix when backend is connected to frontend
-    # config path is piped through stdin until the GUI provides one
-    config = load_config(sys.stdin.readline().strip())
+    # config path comes from the env var when set, else is piped through stdin
+    config_path = os.environ.get("ACQUIRIUM_GUI_CONFIG") or sys.stdin.readline().strip()
+    config = load_config(config_path)
     acq = acquirium_lib.init(config=config['path'])
     try:
         yield

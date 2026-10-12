@@ -20,7 +20,7 @@ classifiers = [
 
 # Track your primary open-source dependencies directly inside the TOML
 dependencies = [
-    "acquirium",
+    "acquirium==0.4.0a8",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
 ]
@@ -40,5 +40,6 @@ dev = [
 markers = [
     "fast: Quick unit tests that run instantly.",
     "slow: Integration or heavy tests that take time.",
+    "watertap: Tests of the helpers that set up the WaterTAP testing environment (config template, checkout lookup).",
     "configneeded: Tests that are skipped if a server is without data, thus a config is needed for a non-trivial server with data/drivers."
 ]
