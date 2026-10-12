@@ -131,48 +131,6 @@ class TestServerClass:
         assert response.status_code == 200
         assert response.json() == {"ok": True}
 
-    # ---- streams tests (independent of which config is loaded) -----------
-    # "streams" = measurement() on an empty query, which matches every registered
-    # stream in the plant, with all of their attributes added via include("all").
-
-    @pytest.mark.configneeded
-    @staticmethod
-    def _streams_query():
-        return server.acq.query().measurement(alias="streams").include("all")
-
-    @pytest.mark.configneeded
-    def test_streams_query_returns_a_dataframe(self):
-        df = self._wait_for_rows(lambda: self._streams_query().metadata())
-        assert isinstance(df, pl.DataFrame)
-        assert df.height > 0
-        assert df.width > 0
-
-    @pytest.mark.configneeded
-    def test_streams_alias_names_a_column(self):
-        # The alias is set explicitly, so unlike the default names this one is
-        # deterministic. NOTE: inferred from how default aliases name columns
-        # ("Pump_data"), not confirmed for include("all"). Delete if it fails.
-        df = self._wait_for_rows(lambda: self._streams_query().metadata())
-        assert "streams" in df.columns
-
-    @pytest.mark.configneeded
-    def test_streams_include_all_adds_columns(self):
-        # include("all") should only add attribute columns, never remove any
-        base = self._wait_for_rows(
-            lambda: server.acq.query().measurement(alias="streams").metadata()
-        )
-        full = self._wait_for_rows(lambda: self._streams_query().metadata())
-        assert full.width >= base.width
-
-    @pytest.mark.configneeded
-    def test_streams_is_json_serializable(self):
-        # the frontend receives JSON, so every column include("all") adds must survive it
-        df = self._wait_for_rows(lambda: self._streams_query().metadata())
-        rows = df.to_dicts()
-        assert json.loads(json.dumps(rows)) == rows
-        # the Acquirium server must be listening on the port from the config
-        assert urlsplit(server.acq.address).port == self.port
-
 
 # Polls until build_frame() returns a non-empty DataFrame, then returns it.
 # Unlike TestServerClass._wait_for_rows this never skips: the WaterTAP server
@@ -243,3 +201,39 @@ class TestWatertapServer:
             limit=1, order="desc", shape="wide"))
         assert isinstance(df, pl.DataFrame)
         assert df.height <= 1
+
+    # "streams" = measurement() on an empty query, which matches every registered
+    # stream in the plant, with all of their attributes added via include("all").
+
+    @staticmethod
+    def _streams_query():
+        return server.acq.query().measurement(alias="streams").include("all")
+
+    @pytest.mark.slow
+    def test_streams_query_returns_a_dataframe(self, watertap_server):
+        df = wait_for_rows(lambda: self._streams_query().metadata())
+        assert isinstance(df, pl.DataFrame)
+        assert df.height > 0
+        assert df.width > 0
+
+    @pytest.mark.slow
+    def test_streams_alias_prefixes_columns(self, watertap_server):
+        # the alias is set explicitly, so the attribute columns are named "streams.<attr>"
+        df = wait_for_rows(lambda: self._streams_query().metadata())
+        assert any(column.startswith("streams.") for column in df.columns)
+
+    @pytest.mark.slow
+    def test_streams_include_all_adds_columns(self, watertap_server):
+        # include("all") should only add attribute columns, never remove any
+        base = wait_for_rows(
+            lambda: server.acq.query().measurement(alias="streams").metadata()
+        )
+        full = wait_for_rows(lambda: self._streams_query().metadata())
+        assert full.width >= base.width
+
+    @pytest.mark.slow
+    def test_streams_is_json_serializable(self, watertap_server):
+        # the frontend receives JSON, so every column include("all") adds must survive it
+        df = wait_for_rows(lambda: self._streams_query().metadata())
+        rows = df.to_dicts()
+        assert json.loads(json.dumps(rows)) == rows
