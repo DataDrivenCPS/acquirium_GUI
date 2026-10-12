@@ -25,6 +25,24 @@ def test_fastapi_startup_bad_config(monkeypatch):
         with TestClient(app=app):
             pass
 
+# Asserts that the ACQUIRIUM_GUI_CONFIG env var is preferred over stdin for the config path
+@pytest.mark.fast
+def test_fastapi_startup_prefers_env_config(monkeypatch):
+    seen = []
+
+    # stands in for load_config so only the path handed to it is observed
+    def fake_load_config(path):
+        seen.append(path)
+        raise ConfigError("stop before Acquirium starts")
+
+    monkeypatch.setattr(server, "load_config", fake_load_config)
+    monkeypatch.setenv("ACQUIRIUM_GUI_CONFIG", "from/env.toml")
+    monkeypatch.setattr(sys, "stdin", io.StringIO("from/stdin.toml\n"))
+    with pytest.raises(ConfigError, match="stop before Acquirium starts"):
+        with TestClient(app=app):
+            pass
+    assert seen == ["from/env.toml"]
+
 
 class TestServerClass:
 
