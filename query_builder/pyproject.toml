@@ -1,0 +1,35 @@
+[project]
+name = "query-builder"
+version = "0.1.0"
+description = "Turns the Acquirium GUI's query builder steps into Acquirium queries and the matching Python"
+readme = "README.md"
+# Same range as the backend, which installs this package
+requires-python = ">=3.12,<3.14"
+
+authors = [
+    { name = "Lucas Hoke", email = "lhoke@mines.edu" },
+    { name = "Ari Derritt", email = "arijaye_derritt@mines.edu" },
+    { name = "Liam O'Byrne", email = "liam_obyrne@mines.edu" },
+    { name = "Victoria Potts", email = "vpotts@mines.edu" }
+]
+
+dependencies = [
+    # Same pin as the backend: the explore Query API this package drives
+    "acquirium==0.4.0a8",
+    "pydantic>=2.11",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.1"
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+markers = [
+    "fast: Quick unit tests that run instantly.",
+    "slow: Integration or heavy tests that take time."
+]

@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -11,5 +12,10 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+  },
+  test: { // settings for Vitest, the unit test runner (npm test)
+    include: ['tests/**/*.test.{ts,tsx}'], // tests live in tests/, mirroring src/
+    environment: 'jsdom', // tests run in a simulated browser page, so components can render
+    setupFiles: './tests/support/setup.ts', // runs before every test file
   },
 })

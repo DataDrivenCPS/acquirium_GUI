@@ -1,0 +1,106 @@
+.window {
+  --sample: #b45309; /* sample-data flag color */
+  --error: #dc2626;
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* lets wide tables scroll inside the window instead of stretching the grid */
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .window {
+    --sample: #fbbf24;
+    --error: #f87171;
+  }
+}
+
+/* a collapsed window keeps only its title bar, instead of stretching to its grid row's height */
+.window--collapsed {
+  align-self: start;
+}
+
+.window-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+
+  h2 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: normal;
+  }
+}
+
+.window-actions {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto; /* pushes the actions to the right end of the title bar */
+}
+
+.sample-flag {
+  padding: 0 6px;
+  border: 1px solid var(--sample);
+  color: var(--sample);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sample-note {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--sample);
+}
+
+.window-body {
+  padding: 8px 10px;
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums; /* digits line up in columns */
+
+  th,
+  td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+
+  th {
+    position: sticky; /* header stays visible while the rows scroll */
+    top: 0;
+    background: var(--bg);
+    color: var(--text-h);
+    font-weight: 600;
+  }
+
+  .numeric {
+    text-align: right;
+  }
+}
+
+.muted {
+  color: var(--text);
+  font-style: italic;
+}
+
+.text-error {
+  color: var(--error);
+}
+
+.window-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}

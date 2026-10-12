@@ -21,3 +21,10 @@ port = {port}
 enabled = true
 data_dir = ".acquirium"
 """
+
+# PORTED plus Acquirium's built-in system-metrics driver, which registers live CPU/RAM/disk/network streams
+METRICS = PORTED + """
+[[drivers]]
+spec = "acquirium.Drivers.BuiltInDrivers.system_metrics:SystemMetricsDriver"
+interval = 1
+"""
