@@ -41,7 +41,8 @@ src/
   components/streams/     Streams window and its filter
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
-  components/query/       QueryWorkspace -> builder, Python and results windows; steps.ts helpers
+  components/query/       QueryWorkspace -> builder, Python and results windows. STUB: they show
+                          "Not implemented yet"; their comments say which routes and types they'll use
   components/status/      status panel (collapsible)
 tests/                    mirrors src/; support/ has the test setup, mockFetch and fixtures
 ```

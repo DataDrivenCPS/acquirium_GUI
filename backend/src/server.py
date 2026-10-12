@@ -1,7 +1,8 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 import acquirium as acquirium_lib
 from query_builder import QuerySpec, query_attributes, run_query, to_python
 from src.config import load_config
@@ -31,6 +32,11 @@ async def lifespan(app: FastAPI):
         acquirium_lib.shutdown()
 
 app = FastAPI(lifespan=lifespan)
+
+# Code that isn't written yet (the query_builder stub) raises NotImplementedError; report it as 501, not a crash
+@app.exception_handler(NotImplementedError)
+def not_implemented(request: Request, error: NotImplementedError):
+    return JSONResponse(status_code=501, content={"detail": str(error)})
 
 # Returns plain description for root
 @app.get("/")

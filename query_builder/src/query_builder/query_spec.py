@@ -1,17 +1,23 @@
-"""The query builder's steps, and how they become an Acquirium query and the matching Python.
+"""The query builder's steps, and how they should become an Acquirium query and the matching Python.
 
-The frontend sends a list of steps (QuerySpec). Each step turns into one method call on Acquirium's
-explore Query (a Call). The same calls are executed by run_query and printed by to_python, so the
-Python shown always matches what ran.
+STUB: the request format (the step models below) is defined and validated, but the behavior is not
+implemented yet. Every function below raises NotImplementedError; its docstring says what it should do.
+The backend's /query/* routes already call these functions and answer 501 until they are filled in.
+
+Intended design: the frontend sends a list of steps (QuerySpec). Each step turns into one method call
+on Acquirium's explore Query (a Call). The same calls are executed by run_query and printed by
+to_python, so the Python shown always matches what ran.
 """
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union
-from urllib.parse import urlsplit
-from acquirium.Client.explore import REGISTRY, Not
+from acquirium.Client.explore import REGISTRY
 from pydantic import BaseModel, BeforeValidator, Field, StringConstraints, field_validator
 
-# Most rows a query run sends back; the rest are counted but left out
+# Most rows a query run should send back; the rest are counted but left out
 MAX_ROWS = 1000
+
+def _not_implemented(name: str) -> NotImplementedError:
+    return NotImplementedError(f"query_builder.{name} is not implemented yet")
 
 def _blank_to_none(value: Any) -> Any:
     """Trims text and treats blank text as "not set", so the frontend can send its form fields as-is."""
@@ -43,13 +49,6 @@ class Filter(BaseModel):
             raise ValueError(f"unknown attribute {attr!r}; known: {', '.join(REGISTRY)}")
         return attr
 
-def _filter_kwargs(filters: list[Filter]) -> dict:
-    return {f.attr: Not(f.value) if f.exclude else f.value for f in filters}
-
-def _set_kwargs(**kwargs: Any) -> dict:
-    """Keeps only the options that were set, so Acquirium's own defaults apply to the rest."""
-    return {name: value for name, value in kwargs.items() if value is not None}
-
 class _FilteredStep(BaseModel):
     filters: list[Filter] = []
 
@@ -69,10 +68,6 @@ class EntityStep(_FilteredStep):
     uri: Text = None
     alias: Text = None
 
-    def to_call(self) -> Call:
-        return Call("entity", (self.cls,) if self.cls else (),
-                    {**_set_kwargs(uri=self.uri, alias=self.alias), **_filter_kwargs(self.filters)})
-
 class RelatedStep(_FilteredStep):
     """Hop to a related entity: Query.related(cls, uri=, alias=, frm=, via=, direction=, max_depth=, nearest=, **filters)."""
     kind: Literal["related"]
@@ -85,11 +80,6 @@ class RelatedStep(_FilteredStep):
     max_depth: Optional[int] = Field(default=None, ge=0)
     nearest: Optional[bool] = None
 
-    def to_call(self) -> Call:
-        options = _set_kwargs(uri=self.uri, alias=self.alias, frm=self.frm, via=self.via,
-                              direction=self.direction, max_depth=self.max_depth, nearest=self.nearest)
-        return Call("related", (self.cls,) if self.cls else (), {**options, **_filter_kwargs(self.filters)})
-
 class MeasurementStep(_FilteredStep):
     """Attach measurement points: Query.measurement(frm=, alias=, direction=, max_depth=, nearest=, **filters)."""
     kind: Literal["measurement"]
@@ -99,19 +89,11 @@ class MeasurementStep(_FilteredStep):
     max_depth: Optional[int] = Field(default=None, ge=0)
     nearest: Optional[bool] = None
 
-    def to_call(self) -> Call:
-        options = _set_kwargs(frm=self.frm, alias=self.alias, direction=self.direction,
-                              max_depth=self.max_depth, nearest=self.nearest)
-        return Call("measurement", (), {**options, **_filter_kwargs(self.filters)})
-
 class WhereStep(_FilteredStep):
     """Filter an existing node: Query.where(target, **filters)."""
     kind: Literal["where"]
     target: Text = None
     filters: list[Filter] = Field(min_length=1)
-
-    def to_call(self) -> Call:
-        return Call("where", (self.target,) if self.target else (), _filter_kwargs(self.filters))
 
 class IncludeStep(BaseModel):
     """Add output columns: Query.include(*names, of=, required=)."""
@@ -120,9 +102,6 @@ class IncludeStep(BaseModel):
     of: Text = None
     required: bool = False
 
-    def to_call(self) -> Call:
-        return Call("include", tuple(self.names), _set_kwargs(of=self.of, required=self.required or None))
-
 Step = Annotated[Union[EntityStep, RelatedStep, MeasurementStep, WhereStep, IncludeStep], Field(discriminator="kind")]
 
 class QuerySpec(BaseModel):
@@ -130,57 +109,34 @@ class QuerySpec(BaseModel):
     steps: list[Step] = []
 
 def to_calls(spec: QuerySpec) -> list[Call]:
-    return [step.to_call() for step in spec.steps]
+    """One Call per step, e.g. an entity step with cls="Pump", alias="p" -> Call("entity", ("Pump",), {"alias": "p"}).
+
+    Should leave unset options out (so Acquirium's defaults apply) and turn an excluded filter into
+    acquirium.Client.explore.Not(value).
+    """
+    raise _not_implemented("to_calls")
 
 def apply_calls(query: Any, calls: list[Call]) -> Any:
-    """Chains each call onto an Acquirium Query and returns the resulting Query."""
-    for call in calls:
-        query = getattr(query, call.method)(*call.args, **call.kwargs)
-    return query
+    """Should chain each call onto an Acquirium Query (query.entity(...).measurement(...)...) and return the result."""
+    raise _not_implemented("apply_calls")
 
 def run_query(acq: Any, spec: QuerySpec) -> dict:
-    """Builds the query on Acquirium and returns its metadata table. Acquirium raises ValueError for bad queries."""
-    if not spec.steps:
-        raise ValueError("Add at least one step before running the query.")
-    table = apply_calls(acq.query(), to_calls(spec)).metadata()
-    rows = [list(row) for row in table.rows()]
-    return {
-        "columns": table.columns,
-        "rows": rows[:MAX_ROWS],
-        "total_rows": len(rows),
-        "truncated": len(rows) > MAX_ROWS,
-    }
+    """Should build the query on acq.query(), run .metadata(), and return
+    {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS), "total_rows": int, "truncated": bool}.
 
-def _literal(value: Any) -> str:
-    """Python source for a value. repr() gives a correctly escaped literal for str/int/bool."""
-    if isinstance(value, Not):
-        return f"Not({value.value!r})"
-    return repr(value)
-
-def _arguments(args: tuple, kwargs: dict) -> str:
-    return ", ".join([_literal(a) for a in args] + [f"{name}={_literal(v)}" for name, v in kwargs.items()])
+    Should raise ValueError for an empty spec; Acquirium itself raises ValueError for queries it
+    rejects. The backend turns ValueError into HTTP 400.
+    """
+    raise _not_implemented("run_query")
 
 def to_python(spec: QuerySpec, address: str) -> str:
-    """A standalone script that connects to the Acquirium at `address` and runs the same query."""
-    calls = to_calls(spec)
-    url = urlsplit(address)
-    connection = _set_kwargs(server_url=url.hostname, server_port=url.port,
-                             use_ssl=True if url.scheme == "https" else None)
-    uses_not = any(isinstance(v, Not) for call in calls for v in call.kwargs.values())
-
-    lines = ["from acquirium import Acquirium"]
-    if uses_not:
-        lines.append("from acquirium.Client.explore import Not")
-    lines += ["", f"aq = Acquirium({_arguments((), connection)})", ""]
-    if calls:
-        lines += ["q = (", "    aq.query()"]
-        lines += [f"    .{call.method}({_arguments(call.args, call.kwargs)})" for call in calls]
-        lines.append(")")
-    else:
-        lines.append("q = aq.query()")
-    lines.append("print(q.metadata())")
-    return "\n".join(lines) + "\n"
+    """Should return a standalone script that connects to the Acquirium at `address` (e.g.
+    "http://127.0.0.1:58999") with acquirium.Acquirium and makes the same calls as run_query.
+    """
+    raise _not_implemented("to_python")
 
 def query_attributes() -> list[dict]:
-    """The attributes steps can filter on, from Acquirium's registry, for the builder's menus."""
-    return [{"name": a.name, "roles": sorted(a.roles), "doc": a.doc} for a in REGISTRY.values()]
+    """Should list the attributes steps can filter on, from Acquirium's REGISTRY:
+    [{"name": "medium", "roles": ["data", "entity"], "doc": "..."}, ...].
+    """
+    raise _not_implemented("query_attributes")

@@ -1,6 +1,5 @@
 import socket
 import time
-from urllib.parse import urlsplit
 import pytest
 from fastapi.testclient import TestClient
 from src.server import app
@@ -56,31 +55,3 @@ def test_drivers_are_live(live_api):
     [driver] = body["drivers"]
     assert driver["name"] == "SystemMetricsDriver"
     assert driver["status"] == "running"
-
-# Asserts that a built query runs against the real graph and finds the metric streams
-@pytest.mark.slow
-def test_query_run_is_live(live_api):
-    wait_for_readings(live_api)
-    response = live_api.post("/query/run", json={"steps": [
-        {"kind": "measurement", "alias": "m"},
-        {"kind": "include", "names": ["unit"]},
-    ]})
-    assert response.status_code == 200
-    body = response.json()
-    assert body["source"] == "live"
-    assert body["columns"][:3] == ["m", "m.label", "m.unit"]
-    assert {row[1] for row in body["rows"]} == METRIC_LABELS
-
-# Asserts that Acquirium's own errors for an unresolvable class come back as a 400 with its message
-@pytest.mark.slow
-def test_query_run_unresolvable_class(live_api):
-    response = live_api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "NotARealClassXYZ"}]})
-    assert response.status_code == 400
-    assert "Could not resolve" in response.json()["detail"]
-
-# Asserts that the Python shown connects to the running Acquirium's port
-@pytest.mark.slow
-def test_query_python_targets_running_server(live_api):
-    address = live_api.get("/runtime-info").json()["acquirium_address"]
-    python = live_api.post("/query/python", json={"steps": [{"kind": "measurement"}]}).json()["python"]
-    assert f"server_port={urlsplit(address).port}" in python

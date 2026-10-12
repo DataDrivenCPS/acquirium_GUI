@@ -1,8 +1,8 @@
 # Acquirium GUI
 
 A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium), laid out for an
-operator: live streams, the drivers feeding them, and a query builder that also shows its query as
-Python.
+operator: live streams and the drivers feeding them, with places reserved for a graph and a query
+builder that are not implemented yet.
 
 ## Repository layout
 
@@ -10,7 +10,7 @@ Python.
 | --- | --- | --- |
 | [`frontend/`](frontend/) | React + TypeScript + Vite page, and the launcher that starts everything | [frontend/README.md](frontend/README.md) |
 | [`backend/`](backend/) | FastAPI server that owns one Acquirium instance and serves the page's data | [backend/README.md](backend/README.md) |
-| [`query_builder/`](query_builder/) | Python package that turns query builder steps into an Acquirium query and the matching Python | [query_builder/README.md](query_builder/README.md) |
+| [`query_builder/`](query_builder/) | Python package meant to turn query builder steps into an Acquirium query and the matching Python. **Currently a stub.** | [query_builder/README.md](query_builder/README.md) |
 
 Each folder has its own `tests/`. The backend installs `query_builder` from this repo.
 
@@ -55,18 +55,17 @@ again to expand it.
 - **Streams**: every stream (measurement point) Acquirium records, with its newest reading, unit,
   quantity kind and source. Refreshes every 3 seconds; the filter box narrows the list.
 - **Graph** (right of Streams): a placeholder; nothing is plotted yet.
-- **Query builder**: builds an Acquirium query step by step (`entity`, `related`, `measurement`,
-  `where`, `include`). **Run** shows the matches in **Query results**.
-- **Python**: the same query as a script using the `acquirium` library, updated as you edit. It
-  connects to the running Acquirium, so you can copy it and run it as-is.
+- **Query builder**, **Python** and **Query results**: placeholders saying "Not implemented yet".
+  They're meant to build an Acquirium query step by step, show it as Python, and show its results;
+  see [query_builder/README.md](query_builder/README.md).
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.
 - **Status** (right): each part of the system, re-checked every 3 seconds: the frontend, the
   backend, the Acquirium server, its embedding indexes and graph, the config in use, and Acquirium's
   address. Click its title to collapse it to a narrow strip.
 
 While Acquirium has no streams or drivers, the Streams and Drivers windows show made-up sample rows,
-marked **Sample data**. A query that matches nothing while Acquirium has no streams shows a sample
-table, also marked. As soon as Acquirium has live data, it replaces the samples on the next refresh.
+marked **Sample data**. As soon as Acquirium has live data, it replaces the samples on the next
+refresh.
 
 ## Configuring Acquirium
 

@@ -1,14 +1,27 @@
 # query_builder
 
-Turns the operator page's query builder steps into an Acquirium query. The same steps also become a
-standalone Python script, so the Python the page shows always matches what **Run** executed.
+**Status: stub.** The interface is in place, but the behavior is not implemented yet.
 
-It's a small Python package (`src/query_builder/`). The backend installs it from this folder and
-calls it from its `/query/*` routes; it has no web code of its own.
+This package is meant to turn the operator page's query builder steps into an Acquirium query, and
+the same steps into a standalone Python script, so the Python the page shows always matches what
+**Run** executed. A complete working version exists in commit `37c7b32` if you want a reference.
 
-## How it works
+## What exists today
 
-The frontend sends `{ "steps": [...] }`. Each step is one call on Acquirium's explore `Query`:
+- **The request format** (`src/query_builder/query_spec.py`): the pydantic step models and
+  `QuerySpec`, with their validation. The backend already uses them to parse request bodies, so
+  malformed steps get a 422.
+- **`Call`** (one method call on an Acquirium `Query`) and **`MAX_ROWS`** (1000).
+- **Stub functions:** `to_calls`, `apply_calls`, `run_query`, `to_python` and `query_attributes`
+  each raise `NotImplementedError`. Their docstrings say what they should return.
+- **Wiring:** the backend's `/query/attributes`, `/query/python` and `/query/run` routes call these
+  functions, and answer **501 Not Implemented** until they're filled in. The frontend's query
+  windows are stubs too, and their comments name the routes and types they'll use.
+
+## Intended behavior
+
+The frontend sends `{ "steps": [...] }`. Each step should become one call on Acquirium's explore
+`Query`:
 
 | Step `kind` | Becomes | Main fields |
 | --- | --- | --- |
@@ -18,37 +31,26 @@ The frontend sends `{ "steps": [...] }`. Each step is one call on Acquirium's ex
 | `where` | `.where(target, **filters)` | at least one filter |
 | `include` | `.include(*names, of=, required=)` | extra output columns |
 
-A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude: true` becomes
-`medium=Not("brine")`. Attribute names come from Acquirium's registry (`query_attributes()`).
-Blank text fields mean "not set", so Acquirium's own defaults apply.
+A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude: true` should become
+`medium=Not("brine")`. Blank text fields already arrive as `None`, meaning "use Acquirium's default",
+so they should be left out of the call.
 
 ```
-QuerySpec (pydantic: validates steps) --to_calls()--> [Call(method, args, kwargs), ...]
-                                                        |                   |
-                         run_query(acq, spec): apply_calls()     to_python(spec, address):
-                         then .metadata() -> table               Python source of the same calls
+QuerySpec --to_calls()--> [Call(method, args, kwargs), ...]
+                             |                         |
+     run_query(acq, spec): apply_calls()        to_python(spec, address):
+     then .metadata() -> table                  Python source of the same calls
 ```
 
-## API
+| Function | Should return |
+| --- | --- |
+| `run_query(acq, spec)` | `{"columns", "rows" (first MAX_ROWS), "total_rows", "truncated"}`; `ValueError` for an empty spec (the backend turns `ValueError` into a 400) |
+| `to_python(spec, address)` | a script that connects with `acquirium.Acquirium` to `address` and makes the same calls |
+| `query_attributes()` | `[{"name", "roles", "doc"}, ...]` from Acquirium's attribute `REGISTRY` |
 
-```python
-from query_builder import QuerySpec, run_query, to_python, query_attributes
-
-spec = QuerySpec.model_validate({"steps": [{"kind": "measurement", "alias": "m"}]})
-to_python(spec, "http://127.0.0.1:58999")  # script that connects to that Acquirium and runs the query
-run_query(acq, spec)                        # {"columns", "rows", "total_rows", "truncated"} (first 1000 rows)
-```
-
-`run_query` raises `ValueError` for an empty query, and Acquirium raises `ValueError` for queries it
-rejects (unknown alias, text it can't resolve); the backend turns those into HTTP 400s.
-
-## Adding a step option
-
-1. Add the field to the step model in `src/query_builder/query_spec.py`; its `to_call()` decides
-   the keyword it becomes.
-2. Add a test in `tests/test_query_spec.py`.
-3. In the frontend, add it to the step type in `src/api/types.ts`, to `newStep()` and to the step's
-   fields in `StepEditor.tsx`.
+When you implement it, make sure the Python that `to_python` writes makes exactly the calls that
+`run_query` makes. The reference version tested this by running the generated script against a
+stand-in that records calls.
 
 ## Tests
 
@@ -58,8 +60,7 @@ From this folder:
 uv run --extra dev python -m pytest
 ```
 
-Or `npm run test:query` from `frontend/`. All tests are unit tests (marked `fast`) using the
-stand-ins in `tests/fakes.py`; none starts Acquirium.
-`test_generated_python_makes_the_same_calls` runs a generated script against a recording stand-in
-and checks it makes exactly the calls `run_query` makes, so the shown Python can't drift from what
-runs.
+Or `npm run test:query` from `frontend/`. Today the tests check the step validation, that each
+behavior raises `NotImplementedError`, and that the public interface is still there. Replace the
+`NotImplementedError` tests with real ones as you implement each function (test first; see
+[backend/tests/README.md](../backend/tests/README.md) for the TDD workflow).
