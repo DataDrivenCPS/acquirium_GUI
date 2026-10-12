@@ -21,3 +21,26 @@ port = {port}
 enabled = true
 data_dir = ".acquirium"
 """
+
+# Format with a free port and the path of an Acquirium checkout ({acq_repo}).
+# Replays the WaterTAP seawater-ro parquet files onto the 32 mapped streams.
+# Paths are absolute so the working directory does not matter.
+WATERTAP_PARQUET = """
+[server]
+host = "127.0.0.1"
+port = {port}
+enabled = true
+data_dir = ".acquirium"
+
+[[drivers]]
+spec                   = "{acq_repo}/deployments/WATERTAP/scripts/parquet_driver.py:WaterTAPParquetDriver"
+interval               = 120.0
+watch_dir              = "{acq_repo}/deployments/WATERTAP/models/seawater-ro/data"
+glob                   = ["*.parquet", "*.pq"]
+format                 = "wide"
+time_col               = "timestamp"
+source_id              = "watertap-seawater-ro"
+watertap_mapping_path  = "{acq_repo}/deployments/WATERTAP/models/seawater-ro/watertap-mapping.json"
+watertap_graph_path    = "{acq_repo}/deployments/WATERTAP/models/seawater-ro/model.ttl"
+watertap_insert_graph  = true
+"""
