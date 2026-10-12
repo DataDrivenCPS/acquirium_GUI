@@ -131,40 +131,6 @@ class TestServerClass:
         assert response.status_code == 200
         assert response.json() == {"ok": True}
 
-    # ---- query tests (independent of which config is loaded) -------------
-    @pytest.mark.configneeded
-    def test_metadata_returns_a_dataframe(self):
-        # column names depend on the query (e.g. entity("Pump") yields "Pump_data"),
-        # so only the structure is checked: at least one row and one column
-        df = self._wait_for_rows(
-            lambda: server.acq.query().measurement().metadata())
-        assert isinstance(df, pl.DataFrame)
-        assert df.height > 0
-        assert df.width > 0
-
-    @pytest.mark.configneeded
-    def test_metadata_columns_are_strings(self):
-        df = self._wait_for_rows(
-            lambda: server.acq.query().measurement().metadata())
-        assert all(dtype == pl.String for dtype in df.schema.values())
-
-    @pytest.mark.configneeded
-    def test_metadata_is_json_serializable(self):
-        # the frontend receives JSON, so everything metadata() returns must survive it
-        df = self._wait_for_rows(
-            lambda: server.acq.query().measurement().metadata())
-        rows = df.to_dicts()
-        assert json.loads(json.dumps(rows)) == rows
-
-    @pytest.mark.configneeded
-    def test_dataframe_limit_is_respected(self):
-        # same call shape as the notebook's q.dataframe(limit=1, order="desc", shape="wide")
-        q = server.acq.query().measurement()
-        df = self._wait_for_rows(lambda: q.dataframe(
-            limit=1, order="desc", shape="wide"))
-        assert isinstance(df, pl.DataFrame)
-        assert df.height <= 1
-
     # ---- streams tests (independent of which config is loaded) -----------
     # "streams" = measurement() on an empty query, which matches every registered
     # stream in the plant, with all of their attributes added via include("all").
@@ -208,6 +174,23 @@ class TestServerClass:
         assert urlsplit(server.acq.address).port == self.port
 
 
+# Polls until build_frame() returns a non-empty DataFrame, then returns it.
+# Unlike TestServerClass._wait_for_rows this never skips: the WaterTAP server
+# must load data, so no rows by the deadline is a failure.
+def wait_for_rows(build_frame, timeout=300.0, interval=3.0):
+    deadline = time.time() + timeout
+    last_error = None
+    while time.time() < deadline:
+        try:
+            df = build_frame()
+            if df.height > 0:
+                return df
+        except Exception as exc:
+            last_error = exc
+        time.sleep(interval)
+    raise AssertionError(f"no rows after {timeout:.0f}s; last error: {last_error!r}")
+
+
 # The server in this class loads the WaterTAP parquet data, so it needs an
 # Acquirium checkout; the watertap_server fixture skips the class without one
 class TestWatertapServer:
@@ -218,3 +201,45 @@ class TestWatertapServer:
         response = watertap_server.get("/server-health")
         assert response.status_code == 200
         assert response.json() == {"ok": True}
+
+    # Asserts the parquet driver loaded the 32 WaterTAP streams with their metadata
+    @pytest.mark.slow
+    def test_watertap_streams_are_loaded(self, watertap_server):
+        df = wait_for_rows(
+            lambda: server.acq.query().measurement(alias="streams").include("all").metadata())
+        assert df.height == 32
+        for column in ("streams.label", "streams.medium", "streams.quantity_kind", "streams.unit"):
+            assert column in df.columns
+
+    @pytest.mark.slow
+    def test_metadata_returns_a_dataframe(self, watertap_server):
+        # column names depend on the query (e.g. entity("Pump") yields "Pump_data"),
+        # so only the structure is checked: at least one row and one column
+        df = wait_for_rows(
+            lambda: server.acq.query().measurement().metadata())
+        assert isinstance(df, pl.DataFrame)
+        assert df.height > 0
+        assert df.width > 0
+
+    @pytest.mark.slow
+    def test_metadata_columns_are_strings(self, watertap_server):
+        df = wait_for_rows(
+            lambda: server.acq.query().measurement().metadata())
+        assert all(dtype == pl.String for dtype in df.schema.values())
+
+    @pytest.mark.slow
+    def test_metadata_is_json_serializable(self, watertap_server):
+        # the frontend receives JSON, so everything metadata() returns must survive it
+        df = wait_for_rows(
+            lambda: server.acq.query().measurement().metadata())
+        rows = df.to_dicts()
+        assert json.loads(json.dumps(rows)) == rows
+
+    @pytest.mark.slow
+    def test_dataframe_limit_is_respected(self, watertap_server):
+        # same call shape as the notebook's q.dataframe(limit=1, order="desc", shape="wide")
+        q = server.acq.query().measurement()
+        df = wait_for_rows(lambda: q.dataframe(
+            limit=1, order="desc", shape="wide"))
+        assert isinstance(df, pl.DataFrame)
+        assert df.height <= 1
