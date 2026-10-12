@@ -3,6 +3,9 @@ import tomllib
 import pytest
 from config_stubs import WATERTAP_PARQUET
 
+# marks every test in this module as WaterTAP environment setup
+pytestmark = pytest.mark.watertap
+
 
 # Asserts the WaterTAP template formats into valid TOML with one parquet driver
 # whose paths are all anchored at the Acquirium checkout it was given
