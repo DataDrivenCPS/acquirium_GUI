@@ -1,17 +1,20 @@
+import tomllib
 from pathlib import Path
 
 import pytest
-from acq_repo import DEFAULT_ACQ_REPO, find_acquirium_repo, watertap_skip_reason
+from acq_repo import (
+    DEFAULT_ACQ_REPO,
+    WATERTAP_DATA_DIR,
+    WATERTAP_REQUIRED_FILES,
+    find_acquirium_repo,
+    watertap_skip_reason,
+    write_watertap_config,
+)
 
 # marks every test in this module as WaterTAP environment setup
 pytestmark = pytest.mark.watertap
 
-WATERTAP_FILES = [
-    "deployments/WATERTAP/scripts/parquet_driver.py",
-    "deployments/WATERTAP/models/seawater-ro/model.ttl",
-    "deployments/WATERTAP/models/seawater-ro/watertap-mapping.json",
-    "deployments/WATERTAP/models/seawater-ro/data/seawater-ro_test.parquet",
-]
+WATERTAP_FILES = [*WATERTAP_REQUIRED_FILES, f"{WATERTAP_DATA_DIR}/seawater-ro_test.parquet"]
 
 
 # Asserts the ACQUIRIUM_REPO env var is used when it is set
@@ -47,3 +50,14 @@ def test_watertap_skip_reason_explains_missing_files(tmp_path):
 
     # the folder exists but is empty, so the WaterTAP files are missing
     assert str(tmp_path) in watertap_skip_reason(tmp_path)
+
+
+# Asserts the written config file holds the given port and points into the checkout
+@pytest.mark.fast
+def test_write_watertap_config_fills_template(tmp_path):
+    config_path = write_watertap_config(tmp_path, port=1234, repo=Path("/fake/acquirium"))
+
+    assert config_path == tmp_path / "acquirium.toml"
+    parsed = tomllib.loads(config_path.read_text())
+    assert parsed["server"]["port"] == 1234
+    assert parsed["drivers"][0]["watch_dir"].startswith("/fake/acquirium/")
