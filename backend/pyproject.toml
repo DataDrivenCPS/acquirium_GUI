@@ -20,7 +20,7 @@ classifiers = [
 
 # Track your primary open-source dependencies directly inside the TOML
 dependencies = [
-    "acquirium",
+    "acquirium==0.4.0a8",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
 ]
