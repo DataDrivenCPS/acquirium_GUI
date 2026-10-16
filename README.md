@@ -1,7 +1,6 @@
 # Acquirium GUI
 
-A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium), laid out for an
-operator: live streams and the drivers feeding them, with places reserved for a graph and a query
+A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium): live streams and the drivers feeding them, with places reserved for a graph and a query
 builder that are not implemented yet.
 
 ## Repository layout

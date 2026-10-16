@@ -8,7 +8,7 @@ from fakes import STREAM_KEYS
 T1 = datetime(2026, 10, 11, 19, 52, 41, tzinfo=timezone.utc)
 
 class FakeStreamQuery:
-    """Stands in for acq.query(): returns `table` from metadata() and `latest` from data().dataframe()."""
+    """Stands in for acq.query(): returns `table` from metadata() and `latest` from dataframe()."""
 
     def __init__(self, table, latest=None):
         self.table = table
@@ -26,11 +26,7 @@ class FakeStreamQuery:
     def metadata(self):
         return self.table
 
-    def data(self, **kwargs):
-        self.calls.append(("data", kwargs))
-        return SimpleNamespace(dataframe=self._dataframe)
-
-    def _dataframe(self, **kwargs):
+    def dataframe(self, **kwargs):
         self.calls.append(("dataframe", kwargs))
         return self.latest
 
@@ -45,7 +41,7 @@ METADATA = pl.DataFrame({
     "point.unit": ["unit:PERCENT", None, None],
     "point.data_source": [None, "SCADA", None],
 })
-# Newest reading per stream, in the shape of DataObject.dataframe(shape="narrow")
+# Newest reading per stream, in the shape of Query.dataframe(shape="narrow")
 LATEST = pl.DataFrame({
     "data_alias": ["point__CPU usage", "point__Pump state"],
     "point_id": ["ns1:cpu_percent", "ns1:pump_state"],
@@ -77,8 +73,7 @@ def test_live_streams_query_shape():
     assert query.calls == [
         ("measurement", {"alias": "point"}),
         ("include", ("quantity_kind", "unit", "data_source")),
-        ("data", {"limit": 1, "order": "desc"}),
-        ("dataframe", {"shape": "narrow"}),
+        ("dataframe", {"shape": "narrow", "limit": 1, "order": "desc", "cast_value": "float"}),
     ]
 
 # Asserts that with no streams registered nothing is fetched and the list is empty
@@ -86,7 +81,7 @@ def test_live_streams_query_shape():
 def test_live_streams_empty():
     query = FakeStreamQuery(pl.DataFrame({"point": []}))
     assert live_streams(fake_acq(query)) == []
-    assert ("data", {"limit": 1, "order": "desc"}) not in query.calls
+    assert all(name != "dataframe" for name, _ in query.calls)
 
 # Asserts that has_streams is a cheap check on whether any measurement point exists
 @pytest.mark.fast

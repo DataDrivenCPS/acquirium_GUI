@@ -13,8 +13,9 @@ def live_streams(acq: Any) -> list[dict]:
     if table.is_empty():
         return []
 
-    # limit=1 + order="desc" fetches only the newest row of each stream
-    newest = query.data(limit=1, order="desc").dataframe(shape="narrow")
+    # limit=1 + order="desc" fetches only the newest row of each stream; cast_value="float" puts numeric
+    # readings in value_numeric (dataframe() defaults to "str", which leaves them uncast)
+    newest = query.dataframe(shape="narrow", limit=1, order="desc", cast_value="float")
     readings = {row["point_id"]: row for row in newest.to_dicts()}
 
     streams = [_stream(row, readings.get(row[POINT])) for row in table.to_dicts()]
