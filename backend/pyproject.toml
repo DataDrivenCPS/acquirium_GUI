@@ -44,5 +44,7 @@ query-builder = { path = "../query_builder", editable = true }
 [tool.pytest.ini_options]
 markers = [
     "fast: Quick unit tests that run instantly.",
-    "slow: Integration or heavy tests that take time."
+    "slow: Integration or heavy tests that take time.",
+    "watertap: Tests of the helpers that set up the WaterTAP testing environment (config template, checkout lookup).",
+    "configneeded: Tests that are skipped if a server is without data, thus a config is needed for a non-trivial server with data/drivers."
 ]
