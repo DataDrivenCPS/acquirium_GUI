@@ -1,0 +1,81 @@
+.status-panel {
+  /* dot colors: green = fine, amber = waiting or in progress, red = problem */
+  --status-ok: #16a34a;
+  --status-pending: #d97706;
+  --status-error: #dc2626;
+
+  width: 300px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 32px 24px;
+  border-inline-start: 1px solid var(--border);
+  text-align: left;
+  font-size: 16px;
+
+  ul {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* collapsed: just the title, as a narrow strip */
+  &.status-panel--collapsed {
+    width: auto;
+    padding-inline: 16px;
+  }
+
+  /* on narrow screens the panel sits under the main content instead of beside it */
+  @media (max-width: 768px) {
+    width: auto;
+    border-inline-start: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .status-panel {
+    --status-ok: #4ade80;
+    --status-pending: #fbbf24;
+    --status-error: #f87171;
+  }
+}
+
+.status-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  strong {
+    color: var(--text-h);
+    font-weight: 500;
+  }
+}
+
+.status-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 0.45em; /* centers the dot on the first line of text */
+  border-radius: 50%;
+}
+
+.status-dot--ok {
+  background: var(--status-ok);
+}
+
+.status-dot--pending {
+  background: var(--status-pending);
+}
+
+.status-dot--error {
+  background: var(--status-error);
+}
+
+.status-detail {
+  font-family: var(--mono);
+  font-size: 13px;
+  overflow-wrap: anywhere; /* long file paths wrap instead of overflowing the panel */
+}

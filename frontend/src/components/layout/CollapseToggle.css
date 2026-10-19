@@ -1,0 +1,10 @@
+/* a panel title that is also its collapse/expand button: looks like plain heading text */
+.collapse-toggle {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}

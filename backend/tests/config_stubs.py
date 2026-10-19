@@ -22,6 +22,13 @@ enabled = true
 data_dir = ".acquirium"
 """
 
+# PORTED plus Acquirium's built-in system-metrics driver, which registers live CPU/RAM/disk/network streams
+METRICS = PORTED + """
+[[drivers]]
+spec = "acquirium.Drivers.BuiltInDrivers.system_metrics:SystemMetricsDriver"
+interval = 1
+"""
+
 # Format with a free port and the path of an Acquirium checkout ({acq_repo}).
 # Replays the WaterTAP seawater-ro parquet files onto the 32 mapped streams.
 # Paths are absolute so the working directory does not matter.

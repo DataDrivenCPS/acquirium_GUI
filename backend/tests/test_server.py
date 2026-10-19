@@ -1,11 +1,5 @@
 import json
-import polars as pl
-
-# import the module, not `acq`: acq is reassigned in the lifespan
-import src.server as server
-import io
 import socket
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -14,35 +8,58 @@ from fastapi.testclient import TestClient
 from src.config import ConfigError
 from src.server import app
 from config_stubs import PORTED
+import polars as pl
 import pytest
+# import the module, not `acq`: acq is reassigned in the lifespan
 import src.server as server
 
-# Asserts that a missing config path piped through stdin aborts server startup
+# Environment variable the launcher uses to hand the server a config path
+CONFIG_ENV = "ACQUIRIUM_GUI_CONFIG"
+
+@pytest.fixture
+def fake_acquirium(monkeypatch):
+    """Records the config passed to acquirium's runtime instead of starting a real server."""
+    calls = []
+    monkeypatch.setattr(server.acquirium_lib, "init", lambda config=None: calls.append(config))
+    monkeypatch.setattr(server.acquirium_lib, "shutdown", lambda: None)
+    return calls
+
+# Asserts that a missing config path in the environment aborts server startup
 @pytest.mark.fast
 def test_fastapi_startup_bad_config(monkeypatch):
-    monkeypatch.setattr(sys, "stdin", io.StringIO("FakeDirectory/missing.toml\n"))
+    monkeypatch.setenv(CONFIG_ENV, "FakeDirectory/missing.toml")
     with pytest.raises(ConfigError, match="The config file specified does not exist."):
         with TestClient(app=app):
             pass
 
-# Asserts that the ACQUIRIUM_GUI_CONFIG env var is preferred over stdin for the config path
+# Asserts that a valid config path in the environment is handed to Acquirium
 @pytest.mark.fast
-def test_fastapi_startup_prefers_env_config(monkeypatch):
-    seen = []
+def test_fastapi_startup_with_config(monkeypatch, tmp_path, fake_acquirium):
+    config_path = tmp_path / "acquirium.toml"
+    config_path.write_text(PORTED.format(port=0))
+    monkeypatch.setenv(CONFIG_ENV, str(config_path))
+    with TestClient(app=app):
+        pass
+    assert fake_acquirium == [config_path]
 
-    # stands in for load_config so only the path handed to it is observed
-    def fake_load_config(path):
-        seen.append(path)
-        raise ConfigError("stop before Acquirium starts")
+# Asserts that with no config path set and no ./acquirium.toml, Acquirium uses its built-in defaults
+@pytest.mark.fast
+def test_fastapi_startup_without_config(monkeypatch, tmp_path, fake_acquirium):
+    monkeypatch.chdir(tmp_path)  # an empty working directory has no acquirium.toml to find
+    monkeypatch.delenv(CONFIG_ENV, raising=False)
+    with TestClient(app=app):
+        pass
+    assert fake_acquirium == [None]
 
-    monkeypatch.setattr(server, "load_config", fake_load_config)
-    monkeypatch.setenv("ACQUIRIUM_GUI_CONFIG", "from/env.toml")
-    monkeypatch.setattr(sys, "stdin", io.StringIO("from/stdin.toml\n"))
-    with pytest.raises(ConfigError, match="stop before Acquirium starts"):
-        with TestClient(app=app):
-            pass
-    assert seen == ["from/env.toml"]
-
+# Asserts that with no config path set, a ./acquirium.toml in the working directory is loaded
+@pytest.mark.fast
+def test_fastapi_startup_finds_local_config(monkeypatch, tmp_path, fake_acquirium):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "acquirium.toml").write_text(PORTED.format(port=0))
+    monkeypatch.delenv(CONFIG_ENV, raising=False)
+    with TestClient(app=app):
+        pass
+    assert fake_acquirium == [Path("acquirium.toml")]
 
 class TestServerClass:
 
@@ -51,8 +68,9 @@ class TestServerClass:
     @classmethod
     def setup_class(self):
 
-        # pipes a valid config path through stdin for the server lifespan to read
-        self.tmp_dir = tempfile.TemporaryDirectory()
+        # hands the server lifespan a valid config path through the environment
+        # On Windows, Acquirium's stopped server can briefly keep its database lock files open
+        self.tmp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         config_path = Path(self.tmp_dir.name) / "acquirium.toml"
 
         # asks the OS for a free port to configure the server with
@@ -60,8 +78,8 @@ class TestServerClass:
             sock.bind(("127.0.0.1", 0))
             self.port = sock.getsockname()[1]
         config_path.write_text(PORTED.format(port=self.port))
-        self.real_stdin = sys.stdin
-        sys.stdin = io.StringIO(f"{config_path}\n")
+        self.env = pytest.MonkeyPatch()
+        self.env.setenv(CONFIG_ENV, str(config_path))
 
         # Defines the FastAPI TestClient
         self.test_client = TestClient(app=app)
@@ -70,7 +88,7 @@ class TestServerClass:
     @classmethod
     def teardown_class(self):
         self.test_client.__exit__(None, None, None)
-        sys.stdin = self.real_stdin
+        self.env.undo()
         self.tmp_dir.cleanup()
         
     @staticmethod
@@ -131,6 +149,24 @@ class TestServerClass:
         assert response.status_code == 200
         assert response.json() == {"ok": True}
 
+        # the Acquirium server must be listening on the port from the config
+        assert urlsplit(server.acq.address).port == self.port
+
+    # Assert that the status routes report on the running Acquirium server
+    @pytest.mark.slow
+    def test_fastapi_status_routes(self):
+
+        embedding = self.test_client.get("/embedding-status")
+        assert embedding.status_code == 200
+        assert {"graph", "qudt"} <= embedding.json().keys()
+
+        graph = self.test_client.get("/graph-status")
+        assert graph.status_code == 200
+        assert "is_current" in graph.json()
+
+        info = self.test_client.get("/runtime-info")
+        assert info.status_code == 200
+        assert urlsplit(info.json()["acquirium_address"]).port == self.port
 
 # Polls until build_frame() returns a non-empty DataFrame, then returns it.
 # Unlike TestServerClass._wait_for_rows this never skips: the WaterTAP server

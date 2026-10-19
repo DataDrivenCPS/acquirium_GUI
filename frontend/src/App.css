@@ -1,0 +1,38 @@
+/* Main content on the left, status panel on the right; stacked on narrow screens */
+.app-layout {
+  display: flex;
+  flex: 1;
+
+  & > main {
+    flex: 1;
+    min-width: 0; /* lets the grid shrink below its content's width; wide tables scroll instead */
+    padding: 0 16px 16px;
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+/* The operator windows: live streams and their graph on top, the query tools below, drivers at the bottom */
+.operator-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); /* two equal columns that may shrink */
+  grid-template-areas:
+    'streams graph'
+    'builder python'
+    'results results'
+    'drivers drivers';
+  gap: 12px;
+
+  /* a long list scrolls inside its window instead of pushing everything below it down */
+  .window--streams .window-body,
+  .window--results .window-body {
+    max-height: 420px;
+  }
+
+  @media (max-width: 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'streams' 'graph' 'builder' 'python' 'results' 'drivers';
+  }
+}

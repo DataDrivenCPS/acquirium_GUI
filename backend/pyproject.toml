@@ -3,7 +3,8 @@ name = "acquirium-backend"
 version = "0.1.0"
 description = "FastAPI backend for Acquirium GUI"
 readme = "README.md"
-requires-python = ">=3.12"
+# Capped below 3.14: acquirium's onnxruntime dependency has no 3.14 wheels on macOS
+requires-python = ">=3.12,<3.14"
 
 authors = [
     { name = "Lucas Hoke", email = "lhoke@mines.edu" },
@@ -20,22 +21,26 @@ classifiers = [
 
 # Track your primary open-source dependencies directly inside the TOML
 dependencies = [
+    # Pinned pre-release: 0.3.1 (latest stable) lacks the init()/shutdown() runtime server.py uses
     "acquirium==0.4.0a8",
     "fastapi>=0.141.1",
-    "httpx>=0.28.1",
+    "uvicorn>=0.38.0",
+    # The query builder's steps -> Acquirium query + Python translation (../query_builder)
+    "query-builder",
 ]
 
 [project.optional-dependencies]
 # Dependencies specifically for open-source contributors/testing
 dev = [
+    # FastAPI's TestClient is built on httpx2 (plain httpx is deprecated there)
+    "httpx2>=2.13.1",
     "pytest>=9.1.1"
 ]
 
-[dependency-groups]
-dev = [
-    "httpx2>=2.13.1",
-    "pytest>=9.1.1",
-]
+[tool.uv.sources]
+# Installed from this repo, editable, so changes in query_builder/ apply without reinstalling
+query-builder = { path = "../query_builder", editable = true }
+
 [tool.pytest.ini_options]
 markers = [
     "fast: Quick unit tests that run instantly.",
