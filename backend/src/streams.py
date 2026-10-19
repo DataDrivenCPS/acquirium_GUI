@@ -22,6 +22,7 @@ def live_streams(acq: Any) -> list[dict]:
     return sorted(streams, key=lambda s: (s["label"] or s["point"]).lower())
 
 def _stream(row: dict, reading: dict | None) -> dict:
+    """One stream's JSON object for /streams: its metadata row plus its newest reading (None if it has none yet)."""
     value = None
     if reading is not None:
         value = reading["value_numeric"] if reading["value_numeric"] is not None else reading["value_text"]

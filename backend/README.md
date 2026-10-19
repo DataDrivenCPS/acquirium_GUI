@@ -36,9 +36,7 @@ contents. Don't set Acquirium's `[server] port` to 8000, which this server uses.
 | `POST /query/run` | query builder steps run on Acquirium; a sample table if nothing matches and there are no streams |
 
 The query routes delegate to the [`query_builder`](../query_builder/) package, which this project
-installs from `../query_builder` (see `[tool.uv.sources]` in `pyproject.toml`). That package is
-currently a stub: its functions raise `NotImplementedError`, which the server turns into
-**501 Not Implemented** with the stub's message. Malformed steps still get a 422.
+installs from `../query_builder` (see `[tool.uv.sources]` in `pyproject.toml`).
 
 ## Layout
 
