@@ -181,8 +181,9 @@ describe('QueryWorkspace', () => {
     expect(within(step(1, 'entity')).getByLabelText('Class')).toHaveValue('Pump') // the name, not the identifier
     expect(within(builder()).queryByRole('alert')).not.toBeInTheDocument()
 
-    await userEvent.click(button('Run'))
+    // picking runs the query by itself: no second press of Run
     await screen.findByRole('cell', { name: 'Feed flow' })
+    expect(requestBodies(fetchMock, RUN)).toHaveLength(2)
     expect(requestBodies(fetchMock, RUN)[1]).toEqual({ steps: [expect.objectContaining({ cls: PUMP.uri })] }) // but the identifier is what runs
   })
 
@@ -221,11 +222,12 @@ describe('QueryWorkspace', () => {
     await userEvent.click(button('Add entity'))
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
     await userEvent.click(button('Run'))
-    await userEvent.click(await within(builder()).findByRole('button', { name: /Pump/ }))
+    await userEvent.click(await within(builder()).findByRole('button', { name: /Pump/ })) // runs with the pick
+    await screen.findByRole('cell', { name: 'Feed flow' })
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 's')
     await userEvent.click(button('Run'))
-    await screen.findByRole('cell', { name: 'Feed flow' })
-    expect(requestBodies(fetchMock, RUN)[1]).toEqual({ steps: [expect.objectContaining({ cls: 'Pumps' })] })
+    await waitFor(() => expect(requestBodies(fetchMock, RUN)).toHaveLength(3))
+    expect(requestBodies(fetchMock, RUN)[2]).toEqual({ steps: [expect.objectContaining({ cls: 'Pumps' })] })
   })
 
   it('tells the user that Via takes plain words', async () => {
@@ -251,5 +253,28 @@ describe('QueryWorkspace', () => {
     const results = screen.getByRole('region', { name: 'Query results' })
     expect(within(results).queryByRole('cell', { name: 'Feed flow' })).not.toBeInTheDocument()
     expect(within(results).getByText('Run a query to see its results.')).toBeInTheDocument()
+  })
+
+  it('shows the next unmatched text when the run after a pick fails on another step', async () => {
+    const TANK: Candidate = { uri: 'urn:nawi-water-ontology#Tank', label: 'Tank', score: 0.8, source: 'Water ontology' }
+    let call = 0
+    mockFetch({
+      ...routes,
+      [RUN]: () => {
+        call += 1
+        return call === 1
+          ? { status: 400, body: { detail: "close matches for 'pmp'", candidates: [PUMP], text: 'pmp' } }
+          : { status: 400, body: { detail: "close matches for 'tnk'", candidates: [TANK], text: 'tnk' } }
+      },
+    })
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Add entity'))
+    await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
+    await userEvent.click(button('Add related entity'))
+    await userEvent.type(within(step(2, 'related')).getByLabelText('Class'), 'tnk')
+    await userEvent.click(button('Run'))
+    await userEvent.click(await within(builder()).findByRole('button', { name: /Pump/ }))
+    expect(await within(builder()).findByRole('button', { name: /Tank/ })).toBeInTheDocument()
+    expect(within(step(1, 'entity')).getByLabelText('Class')).toHaveValue('Pump')
   })
 })
