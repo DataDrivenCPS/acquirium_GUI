@@ -88,6 +88,7 @@ class RunnableAcq(FakeAcq):
         class Q:
             def entity(self, *a, **k): outer.calls.append(("entity", a, k)); return self
             def related(self, *a, **k): outer.calls.append(("related", a, k)); return self
+            def include(self, *a, **k): outer.calls.append(("include", a, k)); return self
             def metadata(self):
                 import polars as pl
                 return pl.DataFrame({"x": ["a"]})
@@ -110,4 +111,4 @@ def test_run_keeps_the_typed_class_text():
     acq = RunnableAcq([PUMP])
     run_query(acq, QuerySpec.model_validate({"steps": [{"kind": "entity", "cls": "pump"}]}))
     assert acq.client.log == [("pump", "class", 5, 0.0)]
-    assert acq.calls == [("entity", ("pump",), {})]
+    assert acq.calls == [("entity", ("pump",), {}), ("include", ("label",), {})]

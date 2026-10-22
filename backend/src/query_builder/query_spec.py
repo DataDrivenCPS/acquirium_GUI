@@ -144,6 +144,17 @@ def apply_calls(query: Any, calls: list[Call]) -> Any:
         query = getattr(query, call.method)(*call.args, **call.kwargs)
     return query
 
+def _with_labels(calls: list[Call]) -> list[Call]:
+    """The calls with an include("label") right after each entity and related call, so every node comes back
+    with its name and the page need not show identifiers. Measurement nodes already carry a label column, and
+    including it again makes Acquirium fail, so they are left alone."""
+    labelled = []
+    for call in calls:
+        labelled.append(call)
+        if call.method in ("entity", "related"):
+            labelled.append(Call("include", ("label",)))
+    return labelled
+
 def run_query(acq: Any, spec: QuerySpec) -> dict:
     """Builds the query on acq.query(), runs .metadata(), and returns
     {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS), "total_rows": int, "truncated": bool}.
@@ -156,7 +167,7 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     for step in spec.steps:
         if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
             resolve_text(acq, step.cls, "class")  # fail early with candidates; the query still gets the typed text
-    table = apply_calls(acq.query(), to_calls(spec)).metadata()
+    table = apply_calls(acq.query(), _with_labels(to_calls(spec))).metadata()
     return {
         "columns": table.columns,
         "rows": [list(row) for row in table.head(MAX_ROWS).rows()],

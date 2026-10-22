@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 import polars as pl
 import pytest
 from acquirium.Client.explore import REGISTRY, Not
@@ -155,6 +156,8 @@ class FakeAcquirium:
     def __init__(self, table):
         self.recorder = Recorder()
         self.recorder.metadata = lambda: table
+        # every class text matches confidently, so run_query's text check passes
+        self.client = SimpleNamespace(resolve=lambda text, kind=None, **kw: [{"uri": f"ns1:{text}", "label": text, "score": 1.0}])
     def query(self):
         return self.recorder
 
@@ -163,9 +166,25 @@ class FakeAcquirium:
 def test_run_query_returns_the_metadata_table():
     acq = FakeAcquirium(pl.DataFrame({"point": ["ns1:a", "ns1:b"], "point.unit": ["unit:BAR", None]}))
     result = run_query(acq, spec({"kind": "measurement", "alias": "point"}))
-    assert acq.recorder.log == [Call("measurement", (), {"alias": "point"})]
+    assert acq.recorder.log == [Call("measurement", (), {"alias": "point"})]  # measurements need no label include
     assert result == {"columns": ["point", "point.unit"], "rows": [["ns1:a", "unit:BAR"], ["ns1:b", None]],
                       "total_rows": 2, "truncated": False}
+
+# Asserts that each entity and related node also gets its label, so the page can show names instead of identifiers;
+# measurement nodes already carry a label column, and including it again makes Acquirium fail
+@pytest.mark.fast
+def test_run_query_asks_for_labels_of_entities_only():
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec({"kind": "entity", "cls": "Pump", "alias": "p"}, {"kind": "related", "cls": "Valve"},
+                        {"kind": "measurement"}, {"kind": "refocus", "alias": "p"}))
+    assert [(c.method, c.args) for c in acq.recorder.log] == [
+        ("entity", ("Pump",)), ("include", ("label",)), ("related", ("Valve",)), ("include", ("label",)),
+        ("measurement", ()), ("refocus", ("p",))]
+
+# Asserts that to_calls still returns only what the user's steps say, so the calls shown elsewhere match the steps
+@pytest.mark.fast
+def test_to_calls_does_not_add_label_includes():
+    assert [c.method for c in to_calls(spec({"kind": "entity", "cls": "Pump"}))] == ["entity"]
 
 # Asserts that only MAX_ROWS rows are sent back, while the total still counts every row
 @pytest.mark.fast

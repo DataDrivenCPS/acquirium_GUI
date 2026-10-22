@@ -317,3 +317,11 @@ class TestWatertapServer:
         run = watertap_server.post("/query/run", json={"steps": [{"kind": "entity", "cls": "qzxjv wkplm"}]})
         assert run.status_code == 400
         assert run.json()["candidates"] == response.json()["candidates"]
+
+    # Asserts that a run on real entities returns their labels beside their identifiers
+    @pytest.mark.slow
+    def test_run_query_returns_entity_labels(self, watertap_server):
+        wait_for_rows(lambda: server.acq.query().measurement().metadata())
+        result = run_query(server.acq, QuerySpec.model_validate({"steps": [{"kind": "entity", "cls": "StaticMixer", "alias": "m"}]}))
+        assert result["columns"] == ["m", "m.label"]
+        assert ["wbs:co2-addition", "CO2 Addition"] in result["rows"]
