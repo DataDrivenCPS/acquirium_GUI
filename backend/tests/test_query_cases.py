@@ -91,11 +91,12 @@ class TestWatertapQueryCases:
         ([entity(TANK, "t"), related(MIXER, via="zzqx wkp")], "could not resolve via predicate"),
         ([entity(None)], "provide cls"),
         ([{"kind": "refocus", "alias": "p"}], "unknown alias"),
-        ([{"kind": "include", "names": ["label"]}], "no current node"),
+        ([{"kind": "include", "names": ["unit"]}], "no current node"),
+        ([{"kind": "include", "names": ["label"]}], "nothing to run"),
         ([{"kind": "where", "filters": [attr("label", "x")]}], "no current node"),
     ], ids=["duplicate-alias", "refocus-unknown", "related-first", "measurement-from-unknown", "where-unknown-target",
             "include-bogus", "include-unit-on-entity", "data-only-filter-on-entity", "bad-via", "blank-entity",
-            "refocus-first", "include-first", "where-first"])
+            "refocus-first", "include-first", "include-label-only", "where-first"])
     def test_mistakes_are_400_with_a_message(self, steps, message):
         response = self.run(*steps)
         assert response.status_code == 400
@@ -137,13 +138,13 @@ class TestWatertapQueryCases:
 
     # ---------- known bugs (expected to fail until fixed) ----------
 
-    # BUG: including a label on a measurement node crashes Acquirium with a duplicate column, and the route
-    # answers 500 instead of a message (measurement nodes already carry a label column)
+    # Asserts that including a label on a measurement node is not a server error (measurement nodes already
+    # carry a label column, and Acquirium fails on a duplicate)
     @pytest.mark.slow
-    @pytest.mark.xfail(strict=True, reason="include('label') on a measurement raises polars DuplicateError, not ValueError")
     def test_label_include_on_a_measurement_is_not_a_server_error(self):
         response = self.run({"kind": "measurement", "alias": "d"}, {"kind": "include", "names": ["label"]})
-        assert response.status_code < 500
+        assert response.status_code == 200
+        assert response.json()["columns"] == ["d", "d.label"]
 
     # Asserts that a single quote in a filter value is harmless (it matches nothing, rather than breaking the query)
     @pytest.mark.slow

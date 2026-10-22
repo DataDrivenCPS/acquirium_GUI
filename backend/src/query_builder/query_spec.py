@@ -147,9 +147,15 @@ def apply_calls(query: Any, calls: list[Call]) -> Any:
 def _with_labels(calls: list[Call]) -> list[Call]:
     """The calls with an include("label") right after each entity and related call, so every node comes back
     with its name and the page need not show identifiers. Measurement nodes already carry a label column, and
-    including it again makes Acquirium fail, so they are left alone."""
+    including it again makes Acquirium fail on a duplicate column, so they are left alone. For the same reason
+    "label" is dropped from the user's own include calls (an include left with no names is dropped)."""
     labelled = []
     for call in calls:
+        if call.method == "include":
+            names = tuple(name for name in call.args if name != "label")
+            if not names:
+                continue
+            call = Call("include", names, call.kwargs)
         labelled.append(call)
         if call.method in ("entity", "related"):
             labelled.append(Call("include", ("label",)))
@@ -167,7 +173,10 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     for step in spec.steps:
         if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
             resolve_text(acq, step.cls, "class")  # fail early with candidates; the query still gets the typed text
-    table = apply_calls(acq.query(), _with_labels(to_calls(spec))).metadata()
+    calls = _with_labels(to_calls(spec))
+    if not calls:
+        raise ValueError("There is nothing to run: add an entity, related or measurement step")
+    table = apply_calls(acq.query(), calls).metadata()
     return {
         "columns": table.columns,
         "rows": [list(row) for row in table.head(MAX_ROWS).rows()],

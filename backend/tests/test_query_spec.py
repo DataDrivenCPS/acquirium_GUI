@@ -181,6 +181,26 @@ def test_run_query_asks_for_labels_of_entities_only():
         ("entity", ("Pump",)), ("include", ("label",)), ("related", ("Valve",)), ("include", ("label",)),
         ("measurement", ()), ("refocus", ("p",))]
 
+# Asserts that an include step never asks for "label": entity and related nodes get it automatically and
+# measurement nodes already have it, and asking again makes Acquirium fail on a duplicate column
+@pytest.mark.fast
+@pytest.mark.parametrize("names, kept", [(["label"], None), (["label", "unit"], ("unit",)), (["unit", "label"], ("unit",))])
+def test_run_query_drops_label_from_include_steps(names, kept):
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec({"kind": "measurement"}, {"kind": "include", "names": names, "of": "m"}))
+    includes = [c for c in acq.recorder.log if c.method == "include"]
+    assert [c.args for c in includes] == ([kept] if kept else [])
+    assert all(c.kwargs == {"of": "m"} for c in includes)
+
+# Asserts that steps which add no node once labels are dropped (only an include of "label") are rejected
+# before Acquirium is asked, rather than running an empty query
+@pytest.mark.fast
+def test_run_query_rejects_steps_that_leave_nothing_to_run():
+    acq = FakeAcquirium(pl.DataFrame())
+    with pytest.raises(ValueError, match="nothing to run"):
+        run_query(acq, spec({"kind": "include", "names": ["label"]}))
+    assert acq.recorder.log == []
+
 # Asserts that to_calls still returns only what the user's steps say, so the calls shown elsewhere match the steps
 @pytest.mark.fast
 def test_to_calls_does_not_add_label_includes():
