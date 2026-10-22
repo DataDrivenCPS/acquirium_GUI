@@ -6,7 +6,7 @@ import { newStep, type BuilderKind } from './steps'
 import './QueryBuilder.css'
 
 // Why the last run failed. candidates are the closest nodes to the text that did not match (empty for other errors).
-export type RunError = { message: string; candidates: Candidate[]; text: string | null }
+export type RunError = { message: string; candidates: Candidate[]; text: string | null; field: string | null }
 
 type QueryBuilderWindowProps = {
   steps: QueryStep[]
@@ -14,7 +14,7 @@ type QueryBuilderWindowProps = {
   onRun: () => void
   running: boolean
   error: RunError | null
-  onPick: (text: string, picked: Candidate) => void // the user chose a candidate for the text that did not match
+  onPick: (error: RunError, picked: Candidate) => void // the user chose a candidate for the text that did not match
 }
 
 const ADD_BUTTONS: { kind: BuilderKind; label: string }[] = [
@@ -97,7 +97,7 @@ function QueryBuilderWindow({ steps, onChange, onRun, running, error, onPick }: 
             <ul aria-label="Closest matches">
               {error.candidates.map((candidate) => (
                 <li key={candidate.uri}>
-                  <button type="button" onClick={() => onPick(error.text ?? '', candidate)}>
+                  <button type="button" onClick={() => onPick(error, candidate)}>
                     {describe(candidate)}
                   </button>
                 </li>

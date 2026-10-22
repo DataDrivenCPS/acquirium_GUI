@@ -41,15 +41,15 @@ describe('postJson', () => {
 
   it('carries the closest candidates and the unmatched text when the backend sends them', async () => {
     const candidates = [{ uri: 'ns1:Pump', label: 'Pump', score: 0.82 }]
-    mockFetch({ 'POST /api/run': { status: 400, body: { detail: 'close matches', candidates, text: 'pmp' } } })
+    mockFetch({ 'POST /api/run': { status: 400, body: { detail: 'close matches', candidates, text: 'pmp', field: 'medium' } } })
     const error = await postJson('/api/run', {}).catch((e: unknown) => e)
-    expect(error).toMatchObject({ status: 400, message: 'close matches', candidates, text: 'pmp' })
+    expect(error).toMatchObject({ status: 400, message: 'close matches', candidates, text: 'pmp', field: 'medium' })
   })
 
   it('has no candidates and no text on other errors', async () => {
     mockFetch({ 'POST /api/run': { status: 500, body: { detail: 'boom' } } })
     const error = await postJson('/api/run', {}).catch((e: unknown) => e)
-    expect(error).toMatchObject({ candidates: [], text: null })
+    expect(error).toMatchObject({ candidates: [], text: null, field: null })
   })
 
   it('reports an unreachable backend as an ApiError', async () => {

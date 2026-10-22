@@ -85,7 +85,7 @@ function FilterRow({ filter, names, onChange, onRemove }: FilterRowProps) {
     <div className="filter-row">
       <label>
         Filter attribute
-        <select value={filter.attr} onChange={(event) => onChange({ ...filter, attr: event.target.value })}>
+        <select value={filter.attr} onChange={(event) => onChange({ ...filter, attr: event.target.value, value_uri: '' })}>
           {names.map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
@@ -93,7 +93,7 @@ function FilterRow({ filter, names, onChange, onRemove }: FilterRowProps) {
       </label>
       <label>
         Filter value
-        <input value={filter.value} onChange={(event) => onChange({ ...filter, value: event.target.value })} />
+        <input value={filter.value} onChange={(event) => onChange({ ...filter, value: event.target.value, value_uri: '' })} />
       </label>
       <label>
         <input type="checkbox" checked={filter.exclude} onChange={(event) => onChange({ ...filter, exclude: event.target.checked })} />
@@ -127,7 +127,7 @@ function FilterList({ filters, attributes, onChange }: FilterListProps) {
       <button
         type="button"
         disabled={attributes === null}
-        onClick={() => onChange([...filters, { attr: names[0] ?? '', value: '', exclude: false }])}
+        onClick={() => onChange([...filters, { attr: names[0] ?? '', value: '', value_uri: '', exclude: false }])}
       >
         Add filter
       </button>

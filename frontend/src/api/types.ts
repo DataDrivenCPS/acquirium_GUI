@@ -76,7 +76,9 @@ export type QueryAttribute = {
 export type Direction = 'upstream' | 'downstream'
 
 // One attribute filter, e.g. medium = 'brine'. exclude flips it to "medium is NOT brine".
-export type Filter = { attr: string; value: string; exclude: boolean }
+// value is what the user sees; value_uri is the identifier of the node they picked from the closest
+// matches ('' when they typed the text themselves), sent instead of value and never shown.
+export type Filter = { attr: string; value: string; value_uri: string; exclude: boolean }
 
 // cls is what the user sees in the Class box; cls_uri is the identifier of the node they picked from the
 // closest matches ('' when they typed the text themselves). Only cls_uri's identifier is sent, never shown.

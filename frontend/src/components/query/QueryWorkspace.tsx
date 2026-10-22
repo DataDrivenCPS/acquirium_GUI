@@ -4,7 +4,7 @@ import type { Candidate, QueryResult, QueryStep } from '../../api/types'
 import PythonWindow from './PythonWindow'
 import QueryBuilderWindow, { type RunError } from './QueryBuilderWindow'
 import QueryResultsWindow from './QueryResultsWindow'
-import { fillClass, toRequest } from './steps'
+import { fillPick, toRequest } from './steps'
 
 // The three query windows. This component owns the steps being built: the builder edits them,
 // and Run sends them to POST /api/query/run for the results window. Nothing is sent before Run (or before picking a closest match, which carries on with the run).
@@ -25,16 +25,16 @@ function QueryWorkspace() {
     } catch (caught) {
       setResult(null) // a failed run must not leave the previous query's table up, as if it answered this one
       const failure = caught as Error
-      const { candidates, text } = failure instanceof ApiError ? failure : { candidates: [], text: null }
-      setError({ message: failure.message, candidates, text })
+      const { candidates, text, field } = failure instanceof ApiError ? failure : { candidates: [], text: null, field: null }
+      setError({ message: failure.message, candidates, text, field })
     } finally {
       setRunning(false)
     }
   }
 
   // The user chose which node their unmatched text meant: show its name there and carry on with the run
-  function pick(text: string, picked: Candidate) {
-    const filled = fillClass(steps, text, picked)
+  function pick({ text, field }: RunError, picked: Candidate) {
+    const filled = fillPick(steps, text ?? '', field, picked)
     setSteps(filled)
     setError(null)
     void run(filled)

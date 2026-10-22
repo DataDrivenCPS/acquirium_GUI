@@ -277,4 +277,59 @@ describe('QueryWorkspace', () => {
     expect(await within(builder()).findByRole('button', { name: /Tank/ })).toBeInTheDocument()
     expect(within(step(1, 'entity')).getByLabelText('Class')).toHaveValue('Pump')
   })
+
+  it('lets the user pick a candidate for an ambiguous filter value, then carries on with the run', async () => {
+    let call = 0
+    const fetchMock = mockFetch({
+      ...routes,
+      [RUN]: () =>
+        ++call === 1
+          ? { status: 400, body: { detail: "Several close matches for 'pump'", candidates: [PUMP, PIPE], text: 'pump', field: 'type' } }
+          : { body: RESULT },
+    })
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Add entity'))
+    await userEvent.click(within(step(1, 'entity')).getByRole('button', { name: 'Add filter' }))
+    const filter = within(step(1, 'entity'))
+    await waitFor(() => expect(within(filter.getByLabelText('Filter attribute')).getAllByRole('option')).toHaveLength(2))
+    await userEvent.selectOptions(filter.getByLabelText('Filter attribute'), 'medium') // not the failing attribute
+    await userEvent.type(filter.getByLabelText('Filter value'), 'pump')
+    await userEvent.click(button('Run'))
+
+    await userEvent.click(await within(builder()).findByRole('button', { name: /Pump \(ASHRAE 223\)/ }))
+    await screen.findByRole('cell', { name: 'Feed flow' }) // the run carried on by itself
+    // this filter is on 'medium', the error was about 'type', so it keeps what the user typed
+    expect(filter.getByLabelText('Filter value')).toHaveValue('pump')
+    expect(requestBodies(fetchMock, RUN)).toHaveLength(2)
+  })
+
+  it('fills the failing filter with the name, sends its identifier, and forgets the pick when the value is edited', async () => {
+    let call = 0
+    const fetchMock = mockFetch({
+      ...routes,
+      [RUN]: () =>
+        ++call === 1
+          ? { status: 400, body: { detail: 'close', candidates: [PUMP], text: 'pump', field: 'medium' } }
+          : { body: RESULT },
+    })
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Use measurements'))
+    await userEvent.click(within(step(1, 'measurement')).getByRole('button', { name: 'Add filter' }))
+    const filter = within(step(1, 'measurement'))
+    await userEvent.type(filter.getByLabelText('Filter value'), 'pump')
+    await userEvent.click(button('Run'))
+    await userEvent.click(await within(builder()).findByRole('button', { name: /Pump/ }))
+    await screen.findByRole('cell', { name: 'Feed flow' })
+    expect(filter.getByLabelText('Filter value')).toHaveValue('Pump') // the name, not the identifier
+    expect(requestBodies(fetchMock, RUN)[1]).toEqual({
+      steps: [expect.objectContaining({ filters: [{ attr: 'medium', value: PUMP.uri, exclude: false }] })],
+    })
+
+    await userEvent.type(filter.getByLabelText('Filter value'), 's')
+    await userEvent.click(button('Run'))
+    await waitFor(() => expect(requestBodies(fetchMock, RUN)).toHaveLength(3))
+    expect(requestBodies(fetchMock, RUN)[2]).toEqual({
+      steps: [expect.objectContaining({ filters: [{ attr: 'medium', value: 'Pumps', exclude: false }] })],
+    })
+  })
 })

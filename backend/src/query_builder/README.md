@@ -12,9 +12,9 @@ did not match a node. **`to_python` is still a stub** (the Python window is a pl
 - **`run_query(acq, spec)`**: runs `.metadata()` and returns `{"columns", "rows" (first MAX_ROWS),
   "total_rows", "truncated"}`. An empty spec raises `ValueError`.
 - **`query_attributes()`**: the attributes steps can filter on, from Acquirium's `REGISTRY`.
-- **Text matching** (`resolve.py`): `resolve_text(acq, text, kind)` returns the one node a text
+- **Text matching** (`resolve.py`; applies to class text and to filter values Acquirium matches by meaning, not to verbatim attributes like a label): `resolve_text(acq, text, kind)` returns the one node a text
   names, or raises `ResolutionError` carrying the closest candidates (and the text that failed).
-  `run_query` checks every entity and related class this way before building the query.
+  `run_query` checks every class and filter value this way before building the query.
 - **Not implemented:** `to_python(spec, address)`.
 
 | Step `kind` | Becomes | Main fields |
@@ -33,9 +33,16 @@ A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude
 
 A text matches when its best score is at least `RESOLVE_MIN_SCORE` (0.4) and the runner-up is not
 within `RESOLVE_MARGIN` (0.1) of it. Otherwise the backend answers 400 with
-`{"detail", "candidates": [{"uri", "label", "score", "source"}], "text"}`, and the page lists the candidates.
+`{"detail", "candidates": [{"uri", "label", "score", "source"}], "text", "field"}` (`field` is "class" or the filter attribute the text was typed in), and the page lists the candidates.
 Two ontologies can define the same name (`pump` is both an ASHRAE 223 and a water ontology class), so
 a plain name can be reported as ambiguous. TODO: make the threshold and margin user settings in the UI.
+
+## Safety
+
+Acquirium writes filter literals and identifiers into SPARQL without escaping them. Before calling it,
+`run_query` escapes literal values (a label, `data_source`, `app`), rejects identifier-like text that could
+break out of `<...>`, checks that an entity `uri` exists (Acquirium answers an unknown one with a made-up
+row), and drops `label` from include steps (a duplicate column crashes Acquirium).
 
 ## Names, not identifiers
 
