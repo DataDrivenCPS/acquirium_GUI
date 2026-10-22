@@ -1,27 +1,21 @@
 # query_builder
 
-**Status: stub.** The interface is in place, but the behavior is not implemented yet.
+Turns the operator page's query builder steps into an Acquirium query, runs it, and reports text that
+did not match a node. **`to_python` is still a stub** (the Python window is a placeholder too).
 
-This package is meant to turn the operator page's query builder steps into an Acquirium query, and
-the same steps into a standalone Python script, so the Python the page shows always matches what
-**Run** executed. A complete working version exists in commit `37c7b32` if you want a reference.
+## What exists
 
-## What exists today
-
-- **The request format** (`query_spec.py`): the pydantic step models and
-  `QuerySpec`, with their validation. The backend already uses them to parse request bodies, so
-  malformed steps get a 422.
-- **`Call`** (one method call on an Acquirium `Query`) and **`MAX_ROWS`** (1000).
-- **Stub functions:** `to_calls`, `apply_calls`, `run_query`, `to_python` and `query_attributes`
-  each raise `NotImplementedError`. Their docstrings say what they should return.
-- **Wiring:** the backend's `/query/attributes`, `/query/python` and `/query/run` routes call these
-  functions, and answer **501 Not Implemented** until they're filled in. The frontend's query
-  windows are stubs too, and their comments name the routes and types they'll use.
-
-## Intended behavior
-
-The frontend sends `{ "steps": [...] }`. Each step should become one call on Acquirium's explore
-`Query`:
+- **The request format** (`query_spec.py`): the pydantic step models and `QuerySpec`, with their
+  validation. Malformed steps get a 422.
+- **`to_calls` / `apply_calls`**: each step becomes one `Call` on Acquirium's explore `Query`, and the
+  calls are chained onto `acq.query()`. Unset options are left out so Acquirium's defaults apply.
+- **`run_query(acq, spec)`**: runs `.metadata()` and returns `{"columns", "rows" (first MAX_ROWS),
+  "total_rows", "truncated"}`. An empty spec raises `ValueError`.
+- **`query_attributes()`**: the attributes steps can filter on, from Acquirium's `REGISTRY`.
+- **Text matching** (`resolve.py`): `resolve_text(acq, text, kind)` returns the one node a text
+  names, or raises `ResolutionError` carrying the closest candidates (and the text that failed).
+  `run_query` checks every entity and related class this way before building the query.
+- **Not implemented:** `to_python(spec, address)`.
 
 | Step `kind` | Becomes | Main fields |
 | --- | --- | --- |
@@ -29,38 +23,27 @@ The frontend sends `{ "steps": [...] }`. Each step should become one call on Acq
 | `related` | `.related(cls, uri=, alias=, frm=, via=, direction=, max_depth=, nearest=, **filters)` | from an earlier alias to related things |
 | `measurement` | `.measurement(frm=, alias=, direction=, max_depth=, nearest=, **filters)` | measurement points; all streams if it's the first step |
 | `where` | `.where(target, **filters)` | at least one filter |
-| `include` | `.include(*names, of=, required=)` | extra output columns |
+| `include` | `.include(*names, of=, required=)` | extra output columns (no button in the page yet) |
+| `refocus` | `.refocus(alias)` | point the query at an existing alias |
 
-A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude: true` should become
-`medium=Not("brine")`. Blank text fields already arrive as `None`, meaning "use Acquirium's default",
-so they should be left out of the call.
+A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude: true` becomes
+`medium=Not("brine")`.
 
-```
-QuerySpec --to_calls()--> [Call(method, args, kwargs), ...]
-                             |                         |
-     run_query(acq, spec): apply_calls()        to_python(spec, address):
-     then .metadata() -> table                  Python source of the same calls
-```
+## When text does not match
 
-| Function | Should return |
-| --- | --- |
-| `run_query(acq, spec)` | `{"columns", "rows" (first MAX_ROWS), "total_rows", "truncated"}`; `ValueError` for an empty spec (the backend turns `ValueError` into a 400) |
-| `to_python(spec, address)` | a script that connects with `acquirium.Acquirium` to `address` and makes the same calls |
-| `query_attributes()` | `[{"name", "roles", "doc"}, ...]` from Acquirium's attribute `REGISTRY` |
-
-When you implement it, make sure the Python that `to_python` writes makes exactly the calls that
-`run_query` makes. The reference version tested this by running the generated script against a
-stand-in that records calls.
+A text matches when its best score is at least `RESOLVE_MIN_SCORE` (0.4) and the runner-up is not
+within `RESOLVE_MARGIN` (0.1) of it. Otherwise the backend answers 400 with
+`{"detail", "candidates": [{"uri", "label", "score"}], "text"}`, and the page lists the candidates.
+Two ontologies can define the same name (`pump` is both an ASHRAE 223 and a water ontology class), so
+a plain name can be reported as ambiguous. TODO: make the threshold and margin user settings in the UI.
 
 ## Tests
 
 From `backend/`:
 
 ```bash
-uv run --extra dev python -m pytest tests/test_query_spec.py
+uv run --extra dev python -m pytest tests/test_query_spec.py tests/test_resolve.py   # fast
+uv run --extra dev python -m pytest -m slow                                          # WaterTAP, see tests/README.md
 ```
 
-Today the tests check the step validation, that each
-behavior raises `NotImplementedError`, and that the public interface is still there. Replace the
-`NotImplementedError` tests with real ones as you implement each function (test first; see
-[backend/tests/README.md](../backend/tests/README.md) for the TDD workflow).
+See [backend/tests/README.md](../../tests/README.md) for the TDD workflow and the WaterTAP setup.

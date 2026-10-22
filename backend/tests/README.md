@@ -55,8 +55,10 @@ Make sure your test file names are prefixed with 'test_' so pytest can discover 
 - Mark every test `@pytest.mark.fast` or `@pytest.mark.slow`.
 - `config_stubs.py`: TOML strings for config tests, written to `tmp_path`. Never use real config files.
 - `fakes.py`: stand-in Acquirium payloads (`DRIVER`, `STREAM_KEYS`).
-- The `/query/*` route tests swap the `query_builder` functions for fakes (it's a stub for now), so they
-  check only what the routes do; one test checks that the real stub makes them answer 501.
+- The `/query/*` route tests swap the `query_builder` functions for fakes, so they check only what the
+  routes do; one test checks that `to_python` (still a stub) makes `/query/python` answer 501. The
+  query builder's own behavior is tested in `test_query_spec.py` and `test_resolve.py` (fast, with
+  fakes) and in `TestWatertapServer` (slow, real matching and queries on the WaterTAP data).
 - Route tests replace `server.acq` with a `SimpleNamespace` fake and use a `TestClient` without
   `with`, so the startup code (which would start Acquirium) never runs.
 - `test_live_data.py` (slow) runs a real Acquirium with its system-metrics driver, so the streams and

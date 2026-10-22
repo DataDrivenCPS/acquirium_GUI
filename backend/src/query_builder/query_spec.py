@@ -1,12 +1,8 @@
-"""The query builder's steps, and how they should become an Acquirium query and the matching Python.
+"""The query builder's steps, and how they become an Acquirium query.
 
-STUB: the request format (the step models below) is defined and validated, but the behavior is not
-implemented yet. Every function below raises NotImplementedError; its docstring says what it should do.
-The backend's /query/* routes already call these functions and answer 501 until they are filled in.
-
-Intended design: the frontend sends a list of steps (QuerySpec). Each step turns into one method call
-on Acquirium's explore Query (a Call). The same calls are executed by run_query and printed by
-to_python, so the Python shown always matches what ran.
+The frontend sends a list of steps (QuerySpec). Each step turns into one method call on Acquirium's
+explore Query (a Call), and run_query chains those calls and returns the metadata table.
+to_python is still a stub: it is meant to print the same calls as a standalone script.
 """
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union

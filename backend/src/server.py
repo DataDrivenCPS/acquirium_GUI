@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Code that isn't written yet (the query_builder stub) raises NotImplementedError; report it as 501, not a crash
+# Code that isn't written yet (query_builder's to_python) raises NotImplementedError; report it as 501, not a crash
 @app.exception_handler(NotImplementedError)
 def not_implemented(request: Request, error: NotImplementedError):
     return JSONResponse(status_code=501, content={"detail": str(error)})

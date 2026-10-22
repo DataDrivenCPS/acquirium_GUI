@@ -54,9 +54,11 @@ again to expand it.
 - **Streams**: every stream (measurement point) Acquirium records, with its newest reading, unit,
   quantity kind and source. Refreshes every 3 seconds; the filter box narrows the list.
 - **Graph** (right of Streams): a placeholder; nothing is plotted yet.
-- **Query builder**, **Python** and **Query results**: placeholders saying "Not implemented yet".
-  They're meant to build an Acquirium query step by step, show it as Python, and show its results;
-  see [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
+- **Query builder** and **Query results**: build an Acquirium query step by step (entity, related
+  entity, measurements, filter, refocus), press Run, and see the metadata table it returns. Typed
+  class names that don't match confidently list the closest nodes to pick from; see
+  [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
+- **Python**: still a placeholder; it will show the query as a Python script.
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.
 - **Status** (right): each part of the system, re-checked every 3 seconds: the frontend, the
   backend, the Acquirium server, its embedding indexes and graph, the config in use, and Acquirium's

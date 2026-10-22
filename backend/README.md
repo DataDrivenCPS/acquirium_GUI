@@ -32,8 +32,9 @@ contents. Don't set Acquirium's `[server] port` to 8000, which this server uses.
 | `GET /streams` | every stream with its newest reading; `source: "sample"` rows while there are none |
 | `GET /drivers` | the drivers Acquirium runs; sample rows while it runs none |
 | `GET /query/attributes` | attributes query steps can filter on |
-| `POST /query/python` | query builder steps as a Python script |
-| `POST /query/run` | query builder steps run on Acquirium; a sample table if nothing matches and there are no streams |
+| `POST /query/python` | query builder steps as a Python script (answers 501 until `to_python` is written) |
+| `POST /query/resolve` | the one node a text names, or a 400 with the closest candidates |
+| `POST /query/run` | query builder steps run on Acquirium; a sample table if nothing matches and there are no streams. A rejected query is a 400 with `detail`, `candidates` and `text` |
 
 The query routes delegate to the [`query_builder`](src/query_builder/) package inside `src/`.
 
