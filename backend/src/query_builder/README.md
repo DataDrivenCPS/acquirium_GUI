@@ -37,6 +37,13 @@ within `RESOLVE_MARGIN` (0.1) of it. Otherwise the backend answers 400 with
 Two ontologies can define the same name (`pump` is both an ASHRAE 223 and a water ontology class), so
 a plain name can be reported as ambiguous. TODO: make the threshold and margin user settings in the UI.
 
+## Names, not identifiers
+
+The page avoids showing URIs. `run_query` adds `include("label")` after every entity and related step
+(measurements already have a label column), candidates always carry a label and a plain-words source,
+and the frontend merges each alias column with its label column (`display.ts`). TODO: a UI setting to
+show identifiers (`SHOW_IDENTIFIERS`). Entities cannot yet be picked by name: Class text names a class.
+
 ## Tests
 
 From `backend/`:
