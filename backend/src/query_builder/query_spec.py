@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import BaseModel, BeforeValidator, Field, StringConstraints, field_validator
+from src.query_builder.resolve import resolve_text
 
 # Most rows a query run should send back; the rest are counted but left out
 MAX_ROWS = 1000
@@ -151,11 +152,14 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     """Builds the query on acq.query(), runs .metadata(), and returns
     {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS), "total_rows": int, "truncated": bool}.
 
-    Raises ValueError for an empty spec; Acquirium itself raises ValueError for queries it
-    rejects. The backend turns ValueError into HTTP 400.
+    Raises ValueError for an empty spec, ResolutionError (a ValueError) for entity text that does not
+    match confidently, and Acquirium itself raises ValueError for queries it rejects. The backend turns ValueError into HTTP 400.
     """
     if not spec.steps:
         raise ValueError("Add at least one step before running the query")
+    for step in spec.steps:
+        if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
+            resolve_text(acq, step.cls, "class")  # fail early with candidates; the query still gets the typed text
     table = apply_calls(acq.query(), to_calls(spec)).metadata()
     return {
         "columns": table.columns,

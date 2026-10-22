@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from fastapi.testclient import TestClient
 from src.config import ConfigError
-from src.query_builder import MAX_ROWS, QuerySpec, run_query
+from src.query_builder import MAX_ROWS, RESOLVE_MIN_SCORE, QuerySpec, ResolutionError, resolve_text, run_query
 from src.server import app
 from config_stubs import PORTED
 import polars as pl
@@ -286,3 +286,34 @@ class TestWatertapServer:
         assert "point" in result["columns"]
         assert len(result["rows"]) == min(result["total_rows"], MAX_ROWS)
         assert json.loads(json.dumps(result)) == result
+
+    # Asserts that real text matching on the WaterTAP graph returns a confident class, and a nonsense text
+    # is rejected with candidates (what it matches depends on the ontology, so only the shape is checked)
+    @pytest.mark.slow
+    def test_resolve_text_on_watertap_graph(self, watertap_server):
+        wait_for_rows(lambda: server.acq.query().measurement().metadata())
+        found = resolve_text(server.acq, "tank", "class")
+        assert found["uri"] and found["score"] >= RESOLVE_MIN_SCORE
+        with pytest.raises(ResolutionError) as error:
+            resolve_text(server.acq, "qzxjv wkplm", "class")
+        assert all(set(c) == {"uri", "label", "score"} for c in error.value.candidates)
+
+    # Asserts that a name two ontologies define (Pump in ASHRAE 223 and in the water ontology, both exact matches)
+    # is reported as ambiguous with both nodes to choose from, rather than one being picked silently
+    @pytest.mark.slow
+    def test_resolve_text_reports_a_name_two_ontologies_share(self, watertap_server):
+        wait_for_rows(lambda: server.acq.query().measurement().metadata())
+        with pytest.raises(ResolutionError, match="close") as error:
+            resolve_text(server.acq, "pump", "class")
+        assert len({c["uri"] for c in error.value.candidates}) >= 2
+
+    # Asserts that the HTTP routes answer a misspelled class with a 400 that carries the same candidates
+    @pytest.mark.slow
+    def test_query_routes_report_unmatched_class(self, watertap_server):
+        wait_for_rows(lambda: server.acq.query().measurement().metadata())
+        response = watertap_server.post("/query/resolve", json={"text": "qzxjv wkplm", "kind": "class"})
+        assert response.status_code == 400
+        assert "candidates" in response.json()
+        run = watertap_server.post("/query/run", json={"steps": [{"kind": "entity", "cls": "qzxjv wkplm"}]})
+        assert run.status_code == 400
+        assert run.json()["candidates"] == response.json()["candidates"]
