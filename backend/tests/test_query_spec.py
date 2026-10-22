@@ -1,5 +1,5 @@
 import pytest
-from acquirium.Client.explore import REGISTRY
+from acquirium.Client.explore import REGISTRY, Not
 from pydantic import ValidationError
 from src.query_builder import MAX_ROWS, Call, QuerySpec, apply_calls, query_attributes, run_query, to_calls, to_python
 
@@ -61,6 +61,92 @@ def test_unknown_kind_or_direction_is_rejected(step):
     with pytest.raises(ValidationError):
         spec(step)
 
+# ---------- to_calls ----------
+
+# Asserts that an entity step becomes Query.entity with its class positional and set options as keywords
+@pytest.mark.fast
+def test_entity_step_becomes_an_entity_call():
+    assert to_calls(spec({"kind": "entity", "cls": "Pump", "alias": "p", "uri": "ns1:pump1"})) == [
+        Call("entity", ("Pump",), {"uri": "ns1:pump1", "alias": "p"})]
+
+# Asserts that options left blank are left out, so Acquirium's defaults apply
+@pytest.mark.fast
+def test_unset_options_are_left_out():
+    assert to_calls(spec({"kind": "entity"}, {"kind": "measurement"})) == [Call("entity"), Call("measurement")]
+
+# Asserts that a related step passes every set traversal option, keeping falsy ones like nearest=False and max_depth=0
+@pytest.mark.fast
+def test_related_step_keeps_falsy_options():
+    step = {"kind": "related", "cls": "Valve", "alias": "v", "frm": "p", "via": "ns1:feeds", "direction": "downstream",
+            "max_depth": 0, "nearest": False}
+    assert to_calls(spec(step)) == [Call("related", ("Valve",), {
+        "alias": "v", "frm": "p", "via": "ns1:feeds", "direction": "downstream", "max_depth": 0, "nearest": False})]
+
+# Asserts that filters become attribute keywords and an excluded filter becomes Not(value)
+@pytest.mark.fast
+def test_filters_become_keywords_and_exclusions_become_not():
+    filters = [{"attr": "medium", "value": "brine", "exclude": True}, {"attr": "unit", "value": "BAR"}]
+    assert to_calls(spec({"kind": "measurement", "frm": "p", "filters": filters})) == [
+        Call("measurement", (), {"frm": "p", "medium": Not("brine"), "unit": "BAR"})]
+
+# Asserts that where passes its target positionally, and omits it to mean the current node
+@pytest.mark.fast
+def test_where_step_becomes_a_where_call():
+    filters = [{"attr": "medium", "value": "water"}]
+    assert to_calls(spec({"kind": "where", "target": "p", "filters": filters},
+                         {"kind": "where", "filters": filters})) == [
+        Call("where", ("p",), {"medium": "water"}), Call("where", (), {"medium": "water"})]
+
+# Asserts that a refocus step becomes Query.refocus(alias)
+@pytest.mark.fast
+def test_refocus_step_becomes_a_refocus_call():
+    assert to_calls(spec({"kind": "refocus", "alias": "p"})) == [Call("refocus", ("p",))]
+
+# Asserts that a refocus step needs an alias
+@pytest.mark.fast
+def test_refocus_without_alias_is_rejected():
+    with pytest.raises(ValidationError):
+        spec({"kind": "refocus", "alias": " "})
+
+# Asserts that an include step passes its names positionally and sets required only when asked
+@pytest.mark.fast
+def test_include_step_becomes_an_include_call():
+    assert to_calls(spec({"kind": "include", "names": ["unit", "label"], "of": "m", "required": True},
+                         {"kind": "include", "names": ["unit"]})) == [
+        Call("include", ("unit", "label"), {"of": "m", "required": True}), Call("include", ("unit",))]
+
+# Asserts that steps keep their order
+@pytest.mark.fast
+def test_calls_keep_step_order():
+    steps = [{"kind": "entity", "cls": "Pump"}, {"kind": "measurement", "frm": "Pump"}, {"kind": "refocus", "alias": "Pump"}]
+    assert [c.method for c in to_calls(spec(*steps))] == ["entity", "measurement", "refocus"]
+
+# ---------- apply_calls ----------
+
+class Recorder:
+    """Stands in for an Acquirium Query: records each call and returns itself, like the chained builder."""
+    def __init__(self):
+        self.log = []
+    def __getattr__(self, method):
+        def record(*args, **kwargs):
+            self.log.append(Call(method, args, kwargs))
+            return self
+        return record
+
+# Asserts that each call is chained onto the query in order with its arguments
+@pytest.mark.fast
+def test_apply_calls_chains_each_call():
+    recorder = Recorder()
+    calls = [Call("entity", ("Pump",), {"alias": "p"}), Call("measurement", (), {"frm": "p"})]
+    assert apply_calls(recorder, calls) is recorder
+    assert recorder.log == calls
+
+# Asserts that applying no calls returns the query unchanged
+@pytest.mark.fast
+def test_apply_no_calls_returns_the_query():
+    query = object()
+    assert apply_calls(query, []) is query
+
 # ---------- query_attributes ----------
 
 # Asserts that every attribute in Acquirium's registry is listed, with sorted roles and its doc, so the builder's filter menus match what validation accepts
@@ -79,11 +165,9 @@ MEASUREMENT = {"steps": [{"kind": "measurement"}]}
 # Asserts that every behavior is an explicit stub that says so, rather than silently returning nothing
 @pytest.mark.fast
 @pytest.mark.parametrize("call", [
-    lambda: to_calls(QuerySpec.model_validate(MEASUREMENT)),
-    lambda: apply_calls(object(), [Call("measurement")]),
     lambda: run_query(object(), QuerySpec.model_validate(MEASUREMENT)),
     lambda: to_python(QuerySpec.model_validate(MEASUREMENT), "http://127.0.0.1:9999"),
-], ids=["to_calls", "apply_calls", "run_query", "to_python"])
+], ids=["run_query", "to_python"])
 def test_behavior_is_not_implemented(call):
     with pytest.raises(NotImplementedError, match="not implemented yet"):
         call()
@@ -96,4 +180,5 @@ def test_interface_is_kept():
     assert [type(step).__name__ for step in QuerySpec.model_validate({"steps": [
         {"kind": "entity", "cls": "Pump"}, {"kind": "related", "cls": "Valve"}, {"kind": "measurement"},
         {"kind": "where", "filters": [{"attr": "medium", "value": "water"}]}, {"kind": "include", "names": ["unit"]},
-    ]}).steps] == ["EntityStep", "RelatedStep", "MeasurementStep", "WhereStep", "IncludeStep"]
+        {"kind": "refocus", "alias": "p"},
+    ]}).steps] == ["EntityStep", "RelatedStep", "MeasurementStep", "WhereStep", "IncludeStep", "RefocusStep"]

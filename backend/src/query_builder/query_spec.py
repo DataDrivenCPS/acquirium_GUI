@@ -10,7 +10,7 @@ to_python, so the Python shown always matches what ran.
 """
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union
-from acquirium.Client.explore import REGISTRY
+from acquirium.Client.explore import REGISTRY, Not
 from pydantic import BaseModel, BeforeValidator, Field, StringConstraints, field_validator
 
 # Most rows a query run should send back; the rest are counted but left out
@@ -102,23 +102,50 @@ class IncludeStep(BaseModel):
     of: Text = None
     required: bool = False
 
-Step = Annotated[Union[EntityStep, RelatedStep, MeasurementStep, WhereStep, IncludeStep], Field(discriminator="kind")]
+class RefocusStep(BaseModel):
+    """Point the query at an existing node: Query.refocus(alias)."""
+    kind: Literal["refocus"]
+    alias: NonBlank
+
+Step = Annotated[Union[EntityStep, RelatedStep, MeasurementStep, WhereStep, IncludeStep, RefocusStep],
+                 Field(discriminator="kind")]
 
 class QuerySpec(BaseModel):
     """The query builder's steps, in order."""
     steps: list[Step] = []
 
+def _options(step: BaseModel, *names: str) -> dict:
+    """The named fields of a step that are set, so unset ones fall back to Acquirium's defaults."""
+    return {name: getattr(step, name) for name in names if getattr(step, name) is not None}
+
+def _filter_kwargs(filters: list[Filter]) -> dict:
+    return {f.attr: Not(f.value) if f.exclude else f.value for f in filters}
+
+def _step_call(step: Step) -> Call:
+    if isinstance(step, (EntityStep, RelatedStep)):
+        names = ("uri", "alias") if isinstance(step, EntityStep) else ("uri", "alias", "frm", "via", "direction", "max_depth", "nearest")
+        return Call(step.kind, (step.cls,) if step.cls else (), {**_options(step, *names), **_filter_kwargs(step.filters)})
+    if isinstance(step, MeasurementStep):
+        return Call("measurement", (), {**_options(step, "frm", "alias", "direction", "max_depth", "nearest"), **_filter_kwargs(step.filters)})
+    if isinstance(step, WhereStep):
+        return Call("where", (step.target,) if step.target else (), _filter_kwargs(step.filters))
+    if isinstance(step, IncludeStep):
+        return Call("include", tuple(step.names), {**_options(step, "of"), **({"required": True} if step.required else {})})
+    return Call("refocus", (step.alias,))
+
 def to_calls(spec: QuerySpec) -> list[Call]:
     """One Call per step, e.g. an entity step with cls="Pump", alias="p" -> Call("entity", ("Pump",), {"alias": "p"}).
 
-    Should leave unset options out (so Acquirium's defaults apply) and turn an excluded filter into
+    Leaves unset options out (so Acquirium's defaults apply) and turns an excluded filter into
     acquirium.Client.explore.Not(value).
     """
-    raise _not_implemented("to_calls")
+    return [_step_call(step) for step in spec.steps]
 
 def apply_calls(query: Any, calls: list[Call]) -> Any:
-    """Should chain each call onto an Acquirium Query (query.entity(...).measurement(...)...) and return the result."""
-    raise _not_implemented("apply_calls")
+    """Chains each call onto an Acquirium Query (query.entity(...).measurement(...)...) and returns the result."""
+    for call in calls:
+        query = getattr(query, call.method)(*call.args, **call.kwargs)
+    return query
 
 def run_query(acq: Any, spec: QuerySpec) -> dict:
     """Should build the query on acq.query(), run .metadata(), and return
