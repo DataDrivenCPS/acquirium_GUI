@@ -16,8 +16,8 @@ const RESULT: QueryResult = {
   total_rows: 2,
   truncated: false,
 }
-const PUMP: Candidate = { uri: 'ns1:Pump', label: 'Pump', score: 0.82 }
-const PIPE: Candidate = { uri: 'ns1:Pipe', label: 'Pipe', score: 0.78 }
+const PUMP: Candidate = { uri: 'http://data.ashrae.org/standard223#Pump', label: 'Pump', score: 0.82, source: 'ASHRAE 223' }
+const PIPE: Candidate = { uri: 'ns1:Pipe', label: 'Pipe', score: 0.78, source: null }
 
 const RUN = 'POST /api/query/run'
 const routes = { 'GET /api/query/attributes': { body: ATTRIBUTES }, [RUN]: { body: RESULT } }
@@ -173,17 +173,17 @@ describe('QueryWorkspace', () => {
     expect(await within(builder()).findByRole('alert')).toHaveTextContent("Several close matches for 'pmp'")
     const matches = within(builder()).getByRole('list', { name: 'Closest matches' })
     expect(within(matches).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'Pump (ns1:Pump), score 0.82',
-      'Pipe (ns1:Pipe), score 0.78',
+      'Pump (ASHRAE 223), score 0.82', // the source tells same-named nodes apart; no identifiers are shown
+      'Pipe, score 0.78',
     ])
 
     await userEvent.click(within(matches).getByRole('button', { name: /Pump/ }))
-    expect(within(step(1, 'entity')).getByLabelText('Class')).toHaveValue('ns1:Pump')
+    expect(within(step(1, 'entity')).getByLabelText('Class')).toHaveValue('Pump') // the name, not the identifier
     expect(within(builder()).queryByRole('alert')).not.toBeInTheDocument()
 
     await userEvent.click(button('Run'))
     await screen.findByRole('cell', { name: 'Feed flow' })
-    expect(requestBodies(fetchMock, RUN)[1]).toEqual({ steps: [expect.objectContaining({ cls: 'ns1:Pump' })] })
+    expect(requestBodies(fetchMock, RUN)[1]).toEqual({ steps: [expect.objectContaining({ cls: PUMP.uri })] }) // but the identifier is what runs
   })
 
   it('says when the backend is unreachable, keeping the steps', async () => {
@@ -201,5 +201,37 @@ describe('QueryWorkspace', () => {
     expect(await within(builder()).findByText('Could not load the attribute list; filters are unavailable.')).toBeInTheDocument()
     await userEvent.click(button('Add entity'))
     expect(step(1, 'entity')).toBeInTheDocument()
+  })
+
+  it('does not ask for an identifier: entity and related steps have no URI field', async () => {
+    mockFetch(routes)
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Add entity'))
+    await userEvent.click(button('Add related entity'))
+    expect(within(builder()).queryByLabelText('URI')).not.toBeInTheDocument()
+  })
+
+  it('forgets the chosen node when the class is edited afterwards, so the typed text runs instead', async () => {
+    let call = 0
+    const fetchMock = mockFetch({
+      ...routes,
+      [RUN]: () => (++call === 1 ? { status: 400, body: { detail: 'close', candidates: [PUMP], text: 'pmp' } } : { body: RESULT }),
+    })
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Add entity'))
+    await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
+    await userEvent.click(button('Run'))
+    await userEvent.click(await within(builder()).findByRole('button', { name: /Pump/ }))
+    await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 's')
+    await userEvent.click(button('Run'))
+    await screen.findByRole('cell', { name: 'Feed flow' })
+    expect(requestBodies(fetchMock, RUN)[1]).toEqual({ steps: [expect.objectContaining({ cls: 'Pumps' })] })
+  })
+
+  it('tells the user that Via takes plain words', async () => {
+    mockFetch(routes)
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Add related entity'))
+    expect(within(step(1, 'related')).getByLabelText('Via')).toHaveAttribute('placeholder', 'e.g. feeds (blank: any)')
   })
 })

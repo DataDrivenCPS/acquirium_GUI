@@ -9,11 +9,16 @@ type StepEditorProps = {
   onRemove: () => void
 }
 
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function TextField({ label, value, onChange, placeholder }: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+}) {
   return (
     <label>
       {label}
-      <input value={value} onChange={(event) => onChange(event.target.value)} />
+      <input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </label>
   )
 }
@@ -143,15 +148,15 @@ function StepEditor({ step, number, attributes, onChange, onRemove }: StepEditor
       <div className="step-fields">
         {(step.kind === 'entity' || step.kind === 'related') && (
           <>
-            <TextField label="Class" value={step.cls} onChange={(cls) => set({ cls })} />
-            <TextField label="URI" value={step.uri} onChange={(uri) => set({ uri })} />
+            {/* editing the text forgets a node picked earlier, so what runs is what the box says */}
+            <TextField label="Class" value={step.cls} onChange={(cls) => set({ cls, cls_uri: '' })} />
             <TextField label="Alias" value={step.alias} onChange={(alias) => set({ alias })} />
           </>
         )}
         {step.kind === 'related' && (
           <>
             <TextField label="From alias" value={step.frm} onChange={(frm) => set({ frm })} />
-            <TextField label="Via" value={step.via} onChange={(via) => set({ via })} />
+            <TextField label="Via" value={step.via} placeholder="e.g. feeds (blank: any)" onChange={(via) => set({ via })} />
           </>
         )}
         {step.kind === 'measurement' && (

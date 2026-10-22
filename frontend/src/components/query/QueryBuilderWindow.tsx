@@ -14,7 +14,7 @@ type QueryBuilderWindowProps = {
   onRun: () => void
   running: boolean
   error: RunError | null
-  onPick: (text: string, uri: string) => void // the user chose a candidate for the text that did not match
+  onPick: (text: string, picked: Candidate) => void // the user chose a candidate for the text that did not match
 }
 
 const ADD_BUTTONS: { kind: BuilderKind; label: string }[] = [
@@ -25,9 +25,10 @@ const ADD_BUTTONS: { kind: BuilderKind; label: string }[] = [
   { kind: 'where', label: 'Add filter step' },
 ]
 
-// What a pick-list entry says: the label (if any), its URI, and how well it matched
-function describe({ uri, label, score }: Candidate): string {
-  return `${label ? `${label} (${uri})` : uri}, score ${score.toFixed(2)}`
+// What a pick-list entry says: its name, the ontology it comes from (so same-named nodes can be told apart),
+// and how well it matched. Identifiers are not shown.
+function describe({ label, source, score }: Candidate): string {
+  return `${source ? `${label} (${source})` : label}, score ${score.toFixed(2)}`
 }
 
 // Loads the attributes filters can use, once. null while loading and when they could not be loaded.
@@ -96,7 +97,7 @@ function QueryBuilderWindow({ steps, onChange, onRun, running, error, onPick }: 
             <ul aria-label="Closest matches">
               {error.candidates.map((candidate) => (
                 <li key={candidate.uri}>
-                  <button type="button" onClick={() => onPick(error.text ?? '', candidate.uri)}>
+                  <button type="button" onClick={() => onPick(error.text ?? '', candidate)}>
                     {describe(candidate)}
                   </button>
                 </li>

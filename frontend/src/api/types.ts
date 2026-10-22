@@ -78,10 +78,13 @@ export type Direction = 'upstream' | 'downstream'
 // One attribute filter, e.g. medium = 'brine'. exclude flips it to "medium is NOT brine".
 export type Filter = { attr: string; value: string; exclude: boolean }
 
-export type EntityStep = { kind: 'entity'; cls: string; uri: string; alias: string; filters: Filter[] }
+// cls is what the user sees in the Class box; cls_uri is the identifier of the node they picked from the
+// closest matches ('' when they typed the text themselves). Only cls_uri's identifier is sent, never shown.
+export type EntityStep = { kind: 'entity'; cls: string; cls_uri: string; uri: string; alias: string; filters: Filter[] }
 export type RelatedStep = {
   kind: 'related'
   cls: string
+  cls_uri: string
   uri: string
   alias: string
   frm: string // alias to start from; blank = the previous step's node
@@ -108,8 +111,8 @@ export type RefocusStep = { kind: 'refocus'; alias: string } // point the query 
 export type QueryStep = EntityStep | RelatedStep | MeasurementStep | WhereStep | IncludeStep | RefocusStep
 export type StepKind = QueryStep['kind'] // 'entity' | 'related' | ...
 
-// One node that typed text could mean. score runs 0 to 1; label is null for text that was already a URI.
-export type Candidate = { uri: string; label: string | null; score: number }
+// One node that typed text could mean. score runs 0 to 1.
+export type Candidate = { uri: string; label: string; score: number; source: string | null } // source: the ontology it comes from, in plain words
 
 // POST /api/query/python answers this for { steps }
 export type PythonResponse = { python: string }

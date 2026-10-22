@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { ApiError, postJson } from '../../api/http'
-import type { QueryResult, QueryStep } from '../../api/types'
+import type { Candidate, QueryResult, QueryStep } from '../../api/types'
 import PythonWindow from './PythonWindow'
 import QueryBuilderWindow, { type RunError } from './QueryBuilderWindow'
 import QueryResultsWindow from './QueryResultsWindow'
-import { fillClass } from './steps'
+import { fillClass, toRequest } from './steps'
 
 // The three query windows. This component owns the steps being built: the builder edits them,
 // and Run sends them to POST /api/query/run for the results window. Nothing is sent before Run.
@@ -19,7 +19,7 @@ function QueryWorkspace() {
   async function run() {
     setRunning(true)
     try {
-      setResult(await postJson<QueryResult>('/api/query/run', { steps }))
+      setResult(await postJson<QueryResult>('/api/query/run', { steps: toRequest(steps) }))
       setError(null)
     } catch (caught) {
       const failure = caught as Error
@@ -30,9 +30,9 @@ function QueryWorkspace() {
     }
   }
 
-  // The user chose which node their unmatched text meant: use its URI there, and let them run again
-  function pick(text: string, uri: string) {
-    setSteps(fillClass(steps, text, uri))
+  // The user chose which node their unmatched text meant: show its name there, and let them run again
+  function pick(text: string, picked: Candidate) {
+    setSteps(fillClass(steps, text, picked))
     setError(null)
   }
 
