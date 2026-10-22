@@ -74,7 +74,25 @@ def test_entity_step_becomes_an_entity_call():
 # Asserts that options left blank are left out, so Acquirium's defaults apply
 @pytest.mark.fast
 def test_unset_options_are_left_out():
-    assert to_calls(spec({"kind": "entity"}, {"kind": "measurement"})) == [Call("entity"), Call("measurement")]
+    assert to_calls(spec({"kind": "entity", "cls": "Pump"}, {"kind": "measurement"})) == [
+        Call("entity", ("Pump",)), Call("measurement")]
+
+# Asserts that an entity or related step with no class and no alias is named after its position, because
+# Acquirium would name its column with a bare number ("0") that the user sees as the table header
+@pytest.mark.fast
+def test_classless_steps_get_a_readable_default_alias():
+    assert to_calls(spec({"kind": "entity", "filters": [{"attr": "label", "value": "CO2 Addition"}]},
+                         {"kind": "related", "uri": "wbs:x"}, {"kind": "related"})) == [
+        Call("entity", (), {"alias": "entity 1", "label": "CO2 Addition"}),
+        Call("related", (), {"uri": "wbs:x", "alias": "related 2"}),
+        Call("related", (), {"alias": "related 3"})]
+
+# Asserts that a step that has a class, or an alias, keeps what the user gave it
+@pytest.mark.fast
+def test_default_alias_is_only_for_steps_with_neither_class_nor_alias():
+    calls = to_calls(spec({"kind": "entity", "cls": "Pump"}, {"kind": "entity", "alias": "x", "uri": "wbs:x"},
+                          {"kind": "measurement"}))
+    assert [c.kwargs.get("alias") for c in calls] == [None, "x", None]
 
 # Asserts that a related step passes every set traversal option, keeping falsy ones like nearest=False and max_depth=0
 @pytest.mark.fast

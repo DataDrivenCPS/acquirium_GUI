@@ -189,13 +189,12 @@ class TestWatertapQueryCases:
         assert body["total_rows"] == 1
         assert body["rows"][0][body["columns"].index("m.label")] == "CO2 Addition"
 
-    # BUG: an entity step with only filters (no class) gets a bare number as its column name, which is what
-    # the user sees as the table header
+    # Asserts that an entity step with only filters (no class) has a readable column name, not a bare number
     @pytest.mark.slow
-    @pytest.mark.xfail(strict=True, reason="filter-only entity steps are named '0', '1', ... by Acquirium")
     def test_filter_only_entity_has_a_readable_column_name(self):
         body = self.run(entity(None, filters=[attr("label", "CO2 Addition")])).json()
-        assert not any(column.split(".")[0].isdigit() for column in body["columns"])
+        assert body["columns"] == ["entity 1", "entity 1.label"]
+        assert body["rows"] == [["wbs:co2-addition", "CO2 Addition"]]
 
     # GAP (requirement 6): only class text gets the candidate check. A filter value that does not resolve is a
     # plain 400 with no candidates, so the user is told nothing about what would have matched

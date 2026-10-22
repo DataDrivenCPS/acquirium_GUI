@@ -119,10 +119,13 @@ def _options(step: BaseModel, *names: str) -> dict:
 def _filter_kwargs(filters: list[Filter]) -> dict:
     return {f.attr: Not(f.value) if f.exclude else f.value for f in filters}
 
-def _step_call(step: Step) -> Call:
+def _step_call(step: Step, number: int) -> Call:
     if isinstance(step, (EntityStep, RelatedStep)):
         names = ("uri", "alias") if isinstance(step, EntityStep) else ("uri", "alias", "frm", "via", "direction", "max_depth", "nearest")
-        return Call(step.kind, (step.cls,) if step.cls else (), {**_options(step, *names), **_filter_kwargs(step.filters)})
+        options = _options(step, *names)
+        if not step.cls and not step.alias:
+            options["alias"] = f"{step.kind} {number}"  # else Acquirium names the column with a bare number
+        return Call(step.kind, (step.cls,) if step.cls else (), {**options, **_filter_kwargs(step.filters)})
     if isinstance(step, MeasurementStep):
         return Call("measurement", (), {**_options(step, "frm", "alias", "direction", "max_depth", "nearest"), **_filter_kwargs(step.filters)})
     if isinstance(step, WhereStep):
@@ -135,9 +138,10 @@ def to_calls(spec: QuerySpec) -> list[Call]:
     """One Call per step, e.g. an entity step with cls="Pump", alias="p" -> Call("entity", ("Pump",), {"alias": "p"}).
 
     Leaves unset options out (so Acquirium's defaults apply) and turns an excluded filter into
-    acquirium.Client.explore.Not(value).
+    acquirium.Client.explore.Not(value). An entity or related step with no class and no alias is named
+    after its position ("entity 1"), since Acquirium would otherwise name its column with a bare number.
     """
-    return [_step_call(step) for step in spec.steps]
+    return [_step_call(step, number) for number, step in enumerate(spec.steps, start=1)]
 
 def apply_calls(query: Any, calls: list[Call]) -> Any:
     """Chains each call onto an Acquirium Query (query.entity(...).measurement(...)...) and returns the result."""
