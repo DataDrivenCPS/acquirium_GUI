@@ -45,4 +45,11 @@ describe('displayTable', () => {
   it('returns the table untouched when identifiers are to be shown', () => {
     expect(displayTable(result, true)).toEqual({ columns: result.columns, rows: result.rows })
   })
+
+  // BUG: an alias that contains a dot (the user can type one) is mistaken for an attribute column, so its
+  // identifier is shown as-is and its name is hidden, which exposes exactly what the page is meant to hide
+  it.fails('shows the name for an alias that contains a dot', () => {
+    const dotted = table(['pump.v2', 'pump.v2.label'], [['wbs:P1', 'High-pressure Pump P1']])
+    expect(displayTable(dotted)).toEqual({ columns: ['pump.v2'], rows: [['High-pressure Pump P1']] })
+  })
 })
