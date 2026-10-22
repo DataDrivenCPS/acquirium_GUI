@@ -1,3 +1,4 @@
+import polars as pl
 import pytest
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import ValidationError
@@ -147,6 +148,47 @@ def test_apply_no_calls_returns_the_query():
     query = object()
     assert apply_calls(query, []) is query
 
+# ---------- run_query ----------
+
+class FakeAcquirium:
+    """Stands in for Acquirium: query() hands out a Recorder whose metadata() returns the given table."""
+    def __init__(self, table):
+        self.recorder = Recorder()
+        self.recorder.metadata = lambda: table
+    def query(self):
+        return self.recorder
+
+# Asserts that the steps are applied to a fresh query and the metadata table comes back as columns and rows
+@pytest.mark.fast
+def test_run_query_returns_the_metadata_table():
+    acq = FakeAcquirium(pl.DataFrame({"point": ["ns1:a", "ns1:b"], "point.unit": ["unit:BAR", None]}))
+    result = run_query(acq, spec({"kind": "measurement", "alias": "point"}))
+    assert acq.recorder.log == [Call("measurement", (), {"alias": "point"})]
+    assert result == {"columns": ["point", "point.unit"], "rows": [["ns1:a", "unit:BAR"], ["ns1:b", None]],
+                      "total_rows": 2, "truncated": False}
+
+# Asserts that only MAX_ROWS rows are sent back, while the total still counts every row
+@pytest.mark.fast
+def test_run_query_truncates_long_tables():
+    acq = FakeAcquirium(pl.DataFrame({"point": [f"ns1:p{i}" for i in range(MAX_ROWS + 5)]}))
+    result = run_query(acq, spec({"kind": "measurement"}))
+    assert len(result["rows"]) == MAX_ROWS
+    assert (result["total_rows"], result["truncated"]) == (MAX_ROWS + 5, True)
+
+# Asserts that a table with no rows is a normal result, not an error
+@pytest.mark.fast
+def test_run_query_empty_table():
+    result = run_query(FakeAcquirium(pl.DataFrame({"point": []}, schema={"point": pl.String})), spec({"kind": "measurement"}))
+    assert result == {"columns": ["point"], "rows": [], "total_rows": 0, "truncated": False}
+
+# Asserts that running nothing is rejected before touching Acquirium
+@pytest.mark.fast
+def test_run_query_rejects_an_empty_spec():
+    acq = FakeAcquirium(pl.DataFrame())
+    with pytest.raises(ValueError, match="at least one step"):
+        run_query(acq, spec())
+    assert acq.recorder.log == []
+
 # ---------- query_attributes ----------
 
 # Asserts that every attribute in Acquirium's registry is listed, with sorted roles and its doc, so the builder's filter menus match what validation accepts
@@ -165,9 +207,8 @@ MEASUREMENT = {"steps": [{"kind": "measurement"}]}
 # Asserts that every behavior is an explicit stub that says so, rather than silently returning nothing
 @pytest.mark.fast
 @pytest.mark.parametrize("call", [
-    lambda: run_query(object(), QuerySpec.model_validate(MEASUREMENT)),
     lambda: to_python(QuerySpec.model_validate(MEASUREMENT), "http://127.0.0.1:9999"),
-], ids=["run_query", "to_python"])
+], ids=["to_python"])
 def test_behavior_is_not_implemented(call):
     with pytest.raises(NotImplementedError, match="not implemented yet"):
         call()

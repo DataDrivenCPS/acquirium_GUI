@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from fastapi.testclient import TestClient
 from src.config import ConfigError
+from src.query_builder import MAX_ROWS, QuerySpec, run_query
 from src.server import app
 from config_stubs import PORTED
 import polars as pl
@@ -273,3 +274,15 @@ class TestWatertapServer:
         df = wait_for_rows(lambda: self._streams_query().metadata())
         rows = df.to_dicts()
         assert json.loads(json.dumps(rows)) == rows
+
+    # Asserts that a built query runs through run_query on the live WaterTAP data and the table is JSON-safe
+    @pytest.mark.slow
+    def test_run_query_on_watertap_streams(self, watertap_server):
+        steps = QuerySpec.model_validate({"steps": [
+            {"kind": "measurement", "alias": "point", "filters": [{"attr": "medium", "value": "water"}]}]})
+        wait_for_rows(lambda: server.acq.query().measurement().metadata())
+        result = run_query(server.acq, steps)
+        assert result["total_rows"] > 0
+        assert "point" in result["columns"]
+        assert len(result["rows"]) == min(result["total_rows"], MAX_ROWS)
+        assert json.loads(json.dumps(result)) == result

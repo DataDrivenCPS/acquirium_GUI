@@ -148,13 +148,21 @@ def apply_calls(query: Any, calls: list[Call]) -> Any:
     return query
 
 def run_query(acq: Any, spec: QuerySpec) -> dict:
-    """Should build the query on acq.query(), run .metadata(), and return
+    """Builds the query on acq.query(), runs .metadata(), and returns
     {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS), "total_rows": int, "truncated": bool}.
 
-    Should raise ValueError for an empty spec; Acquirium itself raises ValueError for queries it
+    Raises ValueError for an empty spec; Acquirium itself raises ValueError for queries it
     rejects. The backend turns ValueError into HTTP 400.
     """
-    raise _not_implemented("run_query")
+    if not spec.steps:
+        raise ValueError("Add at least one step before running the query")
+    table = apply_calls(acq.query(), to_calls(spec)).metadata()
+    return {
+        "columns": table.columns,
+        "rows": [list(row) for row in table.head(MAX_ROWS).rows()],
+        "total_rows": table.height,
+        "truncated": table.height > MAX_ROWS,
+    }
 
 def to_python(spec: QuerySpec, address: str) -> str:
     """Should return a standalone script that connects to the Acquirium at `address` (e.g.
