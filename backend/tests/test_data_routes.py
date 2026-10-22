@@ -109,7 +109,7 @@ def test_query_run_rejected_query(api, monkeypatch):
 
 # Asserts that while query_builder is a stub, each query route answers 501 Not Implemented with the stub's message
 @pytest.mark.fast
-@pytest.mark.parametrize("method, path", [("GET", "/query/attributes"), ("POST", "/query/python"), ("POST", "/query/run")])
+@pytest.mark.parametrize("method, path", [("POST", "/query/python"), ("POST", "/query/run")])
 def test_query_routes_report_the_stub(api, method, path):
     response = api.request(method, path, json=MEASUREMENT if method == "POST" else None)
     assert response.status_code == 501

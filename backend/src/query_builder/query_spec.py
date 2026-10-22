@@ -136,7 +136,7 @@ def to_python(spec: QuerySpec, address: str) -> str:
     raise _not_implemented("to_python")
 
 def query_attributes() -> list[dict]:
-    """Should list the attributes steps can filter on, from Acquirium's REGISTRY:
+    """Lists the attributes steps can filter on, from Acquirium's REGISTRY:
     [{"name": "medium", "roles": ["data", "entity"], "doc": "..."}, ...].
     """
-    raise _not_implemented("query_attributes")
+    return [{"name": name, "roles": sorted(attr.roles), "doc": attr.doc} for name, attr in REGISTRY.items()]

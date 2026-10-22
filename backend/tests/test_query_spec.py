@@ -1,4 +1,5 @@
 import pytest
+from acquirium.Client.explore import REGISTRY
 from pydantic import ValidationError
 from src.query_builder import MAX_ROWS, Call, QuerySpec, apply_calls, query_attributes, run_query, to_calls, to_python
 
@@ -60,6 +61,17 @@ def test_unknown_kind_or_direction_is_rejected(step):
     with pytest.raises(ValidationError):
         spec(step)
 
+# ---------- query_attributes ----------
+
+# Asserts that every attribute in Acquirium's registry is listed, with sorted roles and its doc, so the builder's filter menus match what validation accepts
+@pytest.mark.fast
+def test_query_attributes_lists_the_registry():
+    attributes = query_attributes()
+    assert [a["name"] for a in attributes] == list(REGISTRY)
+    medium = next(a for a in attributes if a["name"] == "medium")
+    assert medium == {"name": "medium", "roles": sorted(REGISTRY["medium"].roles), "doc": REGISTRY["medium"].doc}
+    assert all(set(a) == {"name", "roles", "doc"} and isinstance(a["roles"], list) for a in attributes)
+
 # ---------- stub behavior ----------
 
 MEASUREMENT = {"steps": [{"kind": "measurement"}]}
@@ -71,8 +83,7 @@ MEASUREMENT = {"steps": [{"kind": "measurement"}]}
     lambda: apply_calls(object(), [Call("measurement")]),
     lambda: run_query(object(), QuerySpec.model_validate(MEASUREMENT)),
     lambda: to_python(QuerySpec.model_validate(MEASUREMENT), "http://127.0.0.1:9999"),
-    lambda: query_attributes(),
-], ids=["to_calls", "apply_calls", "run_query", "to_python", "query_attributes"])
+], ids=["to_calls", "apply_calls", "run_query", "to_python"])
 def test_behavior_is_not_implemented(call):
     with pytest.raises(NotImplementedError, match="not implemented yet"):
         call()
