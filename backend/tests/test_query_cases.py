@@ -175,13 +175,19 @@ class TestWatertapQueryCases:
         assert response.status_code == 400
         assert "not a valid identifier" in response.json()["detail"]
 
-    # BUG: an entity step for a URI that does not exist answers with one bogus row instead of no rows
+    # Asserts that an entity step for an identifier that is not in the graph is a 400 saying so, not a made-up row
     @pytest.mark.slow
-    @pytest.mark.xfail(strict=True, reason="a nonexistent uri returns a single row in a column named '0'")
-    def test_unknown_uri_matches_nothing(self):
+    def test_unknown_uri_is_rejected(self):
         response = self.run({"kind": "entity", "uri": "wbs:nope-not-here"})
-        assert response.status_code == 200
-        assert response.json()["total_rows"] == 0
+        assert response.status_code == 400
+        assert "No entity found" in response.json()["detail"]
+
+    # Asserts that an identifier that is in the graph finds exactly that entity
+    @pytest.mark.slow
+    def test_known_uri_finds_that_entity(self):
+        body = self.run({"kind": "entity", "uri": "wbs:co2-addition", "alias": "m"}).json()
+        assert body["total_rows"] == 1
+        assert body["rows"][0][body["columns"].index("m.label")] == "CO2 Addition"
 
     # BUG: an entity step with only filters (no class) gets a bare number as its column name, which is what
     # the user sees as the table header

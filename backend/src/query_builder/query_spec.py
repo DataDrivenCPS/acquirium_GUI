@@ -187,6 +187,19 @@ def _safe_for_acquirium(calls: list[Call]) -> list[Call]:
         safe.append(Call(call.method, args, kwargs))
     return safe
 
+def _check_entities_exist(acq: Any, spec: QuerySpec) -> None:
+    """Raises ValueError for an entity or related step whose identifier is not in the graph. Without this,
+    Acquirium answers such a step with one made-up row. The identifier is checked for safety after Acquirium
+    expands a prefix (wbs:x) to a full identifier, because it is written into the query as <...>."""
+    for step in spec.steps:
+        if isinstance(step, (EntityStep, RelatedStep)) and step.uri:
+            expanded = acq.client.expand_uri(step.uri)
+            if _BAD_IRI_CHARS.search(expanded):
+                raise ValueError(f"{step.uri!r} is not a valid identifier")
+            exists = acq.client.sparql_query(f"ASK {{ <{expanded}> ?p ?o }}")["rows"][0][0]
+            if not exists:
+                raise ValueError(f"No entity found for {step.uri!r}")
+
 def _with_labels(calls: list[Call]) -> list[Call]:
     """The calls with an include("label") right after each entity and related call, so every node comes back
     with its name and the page need not show identifiers. Measurement nodes already carry a label column, and
@@ -216,6 +229,7 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     for step in spec.steps:
         if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
             resolve_text(acq, step.cls, "class")  # fail early with candidates; the query still gets the typed text
+    _check_entities_exist(acq, spec)
     calls = _safe_for_acquirium(_with_labels(to_calls(spec)))
     if not calls:
         raise ValueError("There is nothing to run: add an entity, related or measurement step")

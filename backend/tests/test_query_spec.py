@@ -153,11 +153,20 @@ def test_apply_no_calls_returns_the_query():
 
 class FakeAcquirium:
     """Stands in for Acquirium: query() hands out a Recorder whose metadata() returns the given table."""
-    def __init__(self, table):
+    def __init__(self, table, existing=()):
         self.recorder = Recorder()
         self.recorder.metadata = lambda: table
+        self.asked = []  # the existence queries sent
+        def sparql_query(query):
+            self.asked.append(query)
+            return {"columns": [], "rows": [[any(f"<{uri}>" in query for uri in existing)]]}
+        def expand_uri(text):
+            if text.startswith("nope:"):
+                raise ValueError(f"Cannot expand '{text}': no matching namespace")
+            return text.replace("wbs:", "urn:wbs#")
         # every class text matches confidently, so run_query's text check passes
-        self.client = SimpleNamespace(resolve=lambda text, kind=None, **kw: [{"uri": f"ns1:{text}", "label": text, "score": 1.0}])
+        self.client = SimpleNamespace(resolve=lambda text, kind=None, **kw: [{"uri": f"ns1:{text}", "label": text, "score": 1.0}],
+                                      expand_uri=expand_uri, sparql_query=sparql_query)
     def query(self):
         return self.recorder
 
@@ -256,6 +265,48 @@ def test_malformed_identifiers_are_rejected_before_acquirium(step):
 @pytest.mark.fast
 def test_well_formed_identifiers_pass_through():
     assert calls_sent(label_filter("urn:nawi-water-ontology#Pump", attr="medium"))[0].kwargs == {"medium": "urn:nawi-water-ontology#Pump"}
+
+# ---------- entities named by identifier must exist ----------
+# Acquirium answers an entity step for an identifier that is not in the graph with one made-up row, so run_query asks first.
+
+# Asserts that an identifier that is not in the graph is rejected with a message, before the query is built
+@pytest.mark.fast
+@pytest.mark.parametrize("step", [{"kind": "entity", "uri": "wbs:nope-not-here"},
+                                  {"kind": "related", "uri": "wbs:nope-not-here", "cls": "Tank"}])
+def test_unknown_entity_identifier_is_rejected(step):
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}), existing=["urn:wbs#other"])
+    steps = [{"kind": "entity", "cls": "Tank"}, step] if step["kind"] == "related" else [step]
+    with pytest.raises(ValueError, match="No entity found for 'wbs:nope-not-here'"):
+        run_query(acq, spec(*steps))
+    assert [c.method for c in acq.recorder.log if c.method in ("related",)] == []
+
+# Asserts that an identifier that exists runs, and Acquirium still receives it as typed
+@pytest.mark.fast
+def test_known_entity_identifier_runs():
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}), existing=["urn:wbs#co2-addition"])
+    run_query(acq, spec({"kind": "entity", "uri": "wbs:co2-addition", "alias": "m"}))
+    assert acq.recorder.log[0] == Call("entity", (), {"uri": "wbs:co2-addition", "alias": "m"})
+
+# Asserts that an identifier whose expansion could break out of <...> is rejected without being sent in a query
+@pytest.mark.fast
+def test_identifier_that_expands_to_something_unsafe_is_rejected():
+    acq = FakeAcquirium(pl.DataFrame(), existing=[])
+    with pytest.raises(ValueError, match="not a valid identifier"):
+        run_query(acq, spec({"kind": "entity", "uri": "wbs:a> } UNION { ?s ?p ?o #"}))
+    assert acq.asked == [] and acq.recorder.log == []
+
+# Asserts that a prefix Acquirium does not know is reported as Acquirium words it
+@pytest.mark.fast
+def test_unbound_prefix_is_rejected():
+    with pytest.raises(ValueError, match="Cannot expand"):
+        run_query(FakeAcquirium(pl.DataFrame()), spec({"kind": "entity", "uri": "nope:x"}))
+
+# Asserts that steps without an identifier send no existence queries
+@pytest.mark.fast
+def test_no_identifier_means_no_existence_query():
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec({"kind": "entity", "cls": "Tank"}, {"kind": "measurement"}))
+    assert acq.asked == []
 
 # Asserts that to_calls still returns only what the user's steps say, so the calls shown elsewhere match the steps
 @pytest.mark.fast
