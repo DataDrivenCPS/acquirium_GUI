@@ -33,7 +33,7 @@ A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude
 
 A text matches when its best score is at least `RESOLVE_MIN_SCORE` (0.4) and the runner-up is not
 within `RESOLVE_MARGIN` (0.1) of it. Otherwise the backend answers 400 with
-`{"detail", "candidates": [{"uri", "label", "score"}], "text"}`, and the page lists the candidates.
+`{"detail", "candidates": [{"uri", "label", "score", "source"}], "text"}`, and the page lists the candidates.
 Two ontologies can define the same name (`pump` is both an ASHRAE 223 and a water ontology class), so
 a plain name can be reported as ambiguous. TODO: make the threshold and margin user settings in the UI.
 

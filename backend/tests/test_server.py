@@ -296,7 +296,7 @@ class TestWatertapServer:
         assert found["uri"] and found["score"] >= RESOLVE_MIN_SCORE
         with pytest.raises(ResolutionError) as error:
             resolve_text(server.acq, "qzxjv wkplm", "class")
-        assert all(set(c) == {"uri", "label", "score"} for c in error.value.candidates)
+        assert all(set(c) == {"uri", "label", "score", "source"} for c in error.value.candidates)
 
     # Asserts that a name two ontologies define (Pump in ASHRAE 223 and in the water ontology, both exact matches)
     # is reported as ambiguous with both nodes to choose from, rather than one being picked silently

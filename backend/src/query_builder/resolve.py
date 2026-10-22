@@ -1,4 +1,5 @@
 """Free-text matching for the query builder: pick one node for typed text, or explain why we can't."""
+import re
 from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseModel, StringConstraints
 
@@ -11,6 +12,20 @@ RESOLVE_MARGIN = 0.1
 CANDIDATE_COUNT = 5
 
 Kind = Literal["class", "process", "substance", "quantity_kind", "unit", "any"]
+
+# Plain-words names for the ontologies a node can come from, keyed by the start of its identifier
+SOURCE_NAMES = {
+    "http://data.ashrae.org/standard223#": "ASHRAE 223",
+    "urn:nawi-water-ontology#": "Water ontology",
+    "http://qudt.org/": "QUDT",
+}
+
+def _label(uri: str, label: Optional[str]) -> str:
+    """The node's label, or the readable end of its identifier when it has none."""
+    return label or re.split(r"[#/:]", uri)[-1]
+
+def _source(uri: str) -> Optional[str]:
+    return next((name for start, name in SOURCE_NAMES.items() if uri.startswith(start)), None)
 
 class ResolveRequest(BaseModel):
     """Body of POST /query/resolve: text to match, and what kind of thing it should name."""
@@ -25,15 +40,16 @@ class ResolutionError(ValueError):
         self.text = text  # the text that failed, so a UI can tell which field to fix
 
 def _candidates(matches: list[dict]) -> list[dict]:
-    """Ranked {"uri", "label", "score"} dicts, one per node (a node matched through several names keeps its best score)."""
+    """Ranked {"uri", "label", "score", "source"} dicts, one per node (a node matched through several names keeps its best score)."""
     best: dict[str, dict] = {}
     for found in matches:
         if found["uri"] not in best or found["score"] > best[found["uri"]]["score"]:
-            best[found["uri"]] = {"uri": found["uri"], "label": found.get("label"), "score": found["score"]}
+            best[found["uri"]] = {"uri": found["uri"], "label": _label(found["uri"], found.get("label")),
+                                  "score": found["score"], "source": _source(found["uri"])}
     return sorted(best.values(), key=lambda c: c["score"], reverse=True)
 
 def resolve_text(acq: Any, text: str, kind: Optional[str] = "class") -> dict:
-    """The one node `text` names, as {"uri", "label", "score"}.
+    """The one node `text` names, as {"uri", "label", "score", "source"}.
 
     Raises ResolutionError, carrying the closest candidates, when nothing scores at least
     RESOLVE_MIN_SCORE or when the runner-up is within RESOLVE_MARGIN of the best. Acquirium is asked

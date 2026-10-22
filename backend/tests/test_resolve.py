@@ -27,7 +27,7 @@ def test_threshold_and_margin_defaults():
 # Asserts that a clear winner is returned as a plain uri/label/score
 @pytest.mark.fast
 def test_confident_match_is_returned():
-    assert resolve_text(FakeAcq([PUMP, PIPE]), "pump", "class") == {"uri": "ns1:Pump", "label": "Pump", "score": 0.91}
+    assert resolve_text(FakeAcq([PUMP, PIPE]), "pump", "class") == {"uri": "ns1:Pump", "label": "Pump", "score": 0.91, "source": None}
 
 # Asserts that Acquirium is asked for several candidates with no score floor, so near misses come back for the error
 @pytest.mark.fast
@@ -42,8 +42,8 @@ def test_low_confidence_raises_with_candidates():
     weak = [match("ns1:Pipe", 0.3, "Pipe"), match("ns1:Pump", 0.35, "Pump")]
     with pytest.raises(ResolutionError, match="pmup") as error:
         resolve_text(FakeAcq(weak), "pmup", "class")
-    assert error.value.candidates == [{"uri": "ns1:Pump", "label": "Pump", "score": 0.35},
-                                      {"uri": "ns1:Pipe", "label": "Pipe", "score": 0.3}]
+    assert error.value.candidates == [{"uri": "ns1:Pump", "label": "Pump", "score": 0.35, "source": None},
+                                      {"uri": "ns1:Pipe", "label": "Pipe", "score": 0.3, "source": None}]
     assert error.value.text == "pmup"  # which typed text failed, so the UI knows which field to fill
 
 # Asserts that a confident best match still raises when the runner-up is within the margin
@@ -71,7 +71,30 @@ def test_no_matches_raises_with_no_candidates():
 @pytest.mark.fast
 def test_uri_passthrough():
     passthrough = [{"uri": "ns1:pump1", "kind": "any", "score": 1.0, "match_stage": "passthrough"}]
-    assert resolve_text(FakeAcq(passthrough), "ns1:pump1", "class") == {"uri": "ns1:pump1", "label": None, "score": 1.0}
+    assert resolve_text(FakeAcq(passthrough), "ns1:pump1", "class")["uri"] == "ns1:pump1"
+
+# Asserts that a node with no label is shown by the readable end of its identifier, never as a blank or None
+@pytest.mark.fast
+@pytest.mark.parametrize("uri, name", [
+    ("urn:nawi-water-ontology#Pump", "Pump"),
+    ("http://data.ashrae.org/standard223#Pump", "Pump"),
+    ("http://qudt.org/vocab/unit/GAL_US-PER-MIN", "GAL_US-PER-MIN"),
+    ("ns1:pump1", "pump1"),
+])
+def test_missing_label_falls_back_to_the_identifier_end(uri, name):
+    passthrough = [{"uri": uri, "kind": "any", "score": 1.0, "match_stage": "passthrough"}]
+    assert resolve_text(FakeAcq(passthrough), uri, "class")["label"] == name
+
+# Asserts that the ontology a node comes from is named in plain words, so two nodes called Pump can be told apart
+@pytest.mark.fast
+@pytest.mark.parametrize("uri, source", [
+    ("http://data.ashrae.org/standard223#Pump", "ASHRAE 223"),
+    ("urn:nawi-water-ontology#Pump", "Water ontology"),
+    ("http://qudt.org/vocab/unit/BAR", "QUDT"),
+    ("urn:something-else#Pump", None),
+])
+def test_candidates_name_their_source(uri, source):
+    assert resolve_text(FakeAcq([match(uri, 0.9, "Pump")]), "pump", "class")["source"] == source
 
 # Asserts that a resolution failure is still a ValueError, so existing handling keeps working
 @pytest.mark.fast
