@@ -60,6 +60,20 @@ def test_duplicate_uri_is_not_ambiguous():
     twice = [match("ns1:Pump", 0.9, "Pump"), match("ns1:Pump", 0.88, "Pump"), match("ns1:Pipe", 0.4, "Pipe")]
     assert resolve_text(FakeAcq(twice), "pump", "class")["uri"] == "ns1:Pump"
 
+# Asserts that the error says which field the text came from (a class, or the attribute of a filter), so a pick lands in the right place
+@pytest.mark.fast
+def test_error_carries_the_field():
+    with pytest.raises(ResolutionError) as error:
+        resolve_text(FakeAcq([match("ns1:Pump", 0.2)]), "pmup", "class", field="medium")
+    assert (error.value.text, error.value.field) == ("pmup", "medium")
+
+# Asserts that the field is None when the caller does not say
+@pytest.mark.fast
+def test_error_field_defaults_to_none():
+    with pytest.raises(ResolutionError) as error:
+        resolve_text(FakeAcq([]), "zzz", "class")
+    assert error.value.field is None
+
 # Asserts that no matches at all is an error with an empty candidate list
 @pytest.mark.fast
 def test_no_matches_raises_with_no_candidates():

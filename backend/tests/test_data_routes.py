@@ -106,17 +106,17 @@ def test_query_run_rejected_query(api, monkeypatch):
     monkeypatch.setattr(server, "run_query", reject)
     response = api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "pmup"}]})
     assert response.status_code == 400
-    assert response.json() == {"detail": "Could not resolve 'pmup' as class", "candidates": [], "text": None}
+    assert response.json() == {"detail": "Could not resolve 'pmup' as class", "candidates": [], "text": None, "field": None}
 
 # Asserts that a text that does not resolve confidently comes back as a 400 with its candidates for the pick list
 @pytest.mark.fast
 def test_query_run_unresolved_text_reports_candidates(api, monkeypatch):
     def reject(acq, spec):
-        raise ResolutionError("No confident match for 'pmup'", CANDIDATES, "pmup")
+        raise ResolutionError("No confident match for 'pmup'", CANDIDATES, "pmup", "medium")
     monkeypatch.setattr(server, "run_query", reject)
     response = api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "pmup"}]})
     assert response.status_code == 400
-    assert response.json() == {"detail": "No confident match for 'pmup'", "candidates": CANDIDATES, "text": "pmup"}
+    assert response.json() == {"detail": "No confident match for 'pmup'", "candidates": CANDIDATES, "text": "pmup", "field": "medium"}
 
 # ---------- /query/resolve ----------
 
@@ -144,7 +144,7 @@ def test_query_resolve_reports_candidates(api, monkeypatch):
     monkeypatch.setattr(server, "resolve_text", reject)
     response = api.post("/query/resolve", json={"text": "p"})
     assert response.status_code == 400
-    assert response.json() == {"detail": "Close matches for 'p'", "candidates": CANDIDATES, "text": "p"}
+    assert response.json() == {"detail": "Close matches for 'p'", "candidates": CANDIDATES, "text": "p", "field": None}
 
 # Asserts that blank text and unknown kinds are rejected as invalid requests
 @pytest.mark.fast

@@ -34,10 +34,11 @@ class ResolveRequest(BaseModel):
 
 class ResolutionError(ValueError):
     """Text that did not match one node confidently; `candidates` are the closest nodes, best first."""
-    def __init__(self, message: str, candidates: list[dict], text: Optional[str] = None):
+    def __init__(self, message: str, candidates: list[dict], text: Optional[str] = None, field: Optional[str] = None):
         super().__init__(message)
         self.candidates = candidates
         self.text = text  # the text that failed, so a UI can tell which field to fix
+        self.field = field  # where the text came from: "class", or the attribute of a filter
 
 def _candidates(matches: list[dict]) -> list[dict]:
     """Ranked {"uri", "label", "score", "source"} dicts, one per node (a node matched through several names keeps its best score)."""
@@ -48,19 +49,19 @@ def _candidates(matches: list[dict]) -> list[dict]:
                                   "score": found["score"], "source": _source(found["uri"])}
     return sorted(best.values(), key=lambda c: c["score"], reverse=True)
 
-def resolve_text(acq: Any, text: str, kind: Optional[str] = "class") -> dict:
+def resolve_text(acq: Any, text: str, kind: Optional[str] = "class", field: Optional[str] = None) -> dict:
     """The one node `text` names, as {"uri", "label", "score", "source"}.
 
     Raises ResolutionError, carrying the closest candidates, when nothing scores at least
     RESOLVE_MIN_SCORE or when the runner-up is within RESOLVE_MARGIN of the best. Acquirium is asked
-    with no score floor so near misses are available to show.
+    with no score floor so near misses are available to show. `field` is passed on to the error.
     """
     candidates = _candidates(acq.client.resolve(text, kind, top_k=CANDIDATE_COUNT, min_score=0.0))
     if not candidates:
-        raise ResolutionError(f"No match for {text!r}", [], text)
+        raise ResolutionError(f"No match for {text!r}", [], text, field)
     best = candidates[0]
     if best["score"] < RESOLVE_MIN_SCORE:
-        raise ResolutionError(f"No confident match for {text!r} (best score {best['score']:.2f}, needs {RESOLVE_MIN_SCORE:.2f})", candidates, text)
+        raise ResolutionError(f"No confident match for {text!r} (best score {best['score']:.2f}, needs {RESOLVE_MIN_SCORE:.2f})", candidates, text, field)
     if len(candidates) > 1 and best["score"] - candidates[1]["score"] < RESOLVE_MARGIN:
-        raise ResolutionError(f"Several close matches for {text!r}; choose one", candidates, text)
+        raise ResolutionError(f"Several close matches for {text!r}; choose one", candidates, text, field)
     return best

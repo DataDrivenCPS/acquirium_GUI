@@ -196,20 +196,36 @@ class TestWatertapQueryCases:
         assert body["columns"] == ["entity 1", "entity 1.label"]
         assert body["rows"] == [["wbs:co2-addition", "CO2 Addition"]]
 
-    # GAP (requirement 6): only class text gets the candidate check. A filter value that does not resolve is a
-    # plain 400 with no candidates, so the user is told nothing about what would have matched
+    # Asserts that a filter value that matches nothing is a 400 naming the text and the filter, in the same shape as
+    # class text. Acquirium matches exactly here (no near misses exist for "flow"), so there are no candidates to
+    # offer; the candidate list for filters is covered by the "pump" cases below.
     @pytest.mark.slow
-    @pytest.mark.xfail(strict=True, reason="filter values are not checked for confident matches, so no candidates are offered")
-    def test_unresolved_filter_value_offers_candidates(self):
+    def test_unresolved_filter_value_is_reported_with_its_field(self):
         response = self.run({"kind": "measurement", "filters": [attr("quantity_kind", "flow")]})
+        body = response.json()
         assert response.status_code == 400
-        assert response.json()["candidates"] != []
+        assert (body["text"], body["field"], body["candidates"]) == ("flow", "quantity_kind", [])
+        assert "No match for 'flow'" in body["detail"]
 
-    # GAP (requirement 6): "pump" as a class is reported as ambiguous, but "type = pump" as a filter is resolved
-    # silently to one of the two Pump classes, so the same text means different things in different fields
+    # Asserts that "pump" as a filter value is reported as ambiguous, just like "pump" as class text
     @pytest.mark.slow
-    @pytest.mark.xfail(strict=True, reason="filter values bypass the ambiguity check that class text gets")
     def test_ambiguous_filter_value_is_reported_like_ambiguous_class_text(self):
         response = self.run(entity(None, filters=[attr("type", "pump")]))
+        body = response.json()
         assert response.status_code == 400
-        assert len(response.json()["candidates"]) >= 2
+        assert body["field"] == "type"
+        assert {c["source"] for c in body["candidates"]} >= {"ASHRAE 223", "Water ontology"}
+
+    # Asserts that a picked candidate's identifier runs as a filter value, completing the pick flow for filters
+    @pytest.mark.slow
+    def test_filter_value_runs_once_a_candidate_is_picked(self):
+        ambiguous = self.run(entity(None, filters=[attr("type", "pump")])).json()
+        for candidate in ambiguous["candidates"]:
+            picked = self.run(entity(None, filters=[attr("type", candidate["uri"])]))
+            assert picked.status_code == 200, candidate
+            assert picked.json()["total_rows"] > 0
+
+    # Asserts that class text and a filter value that fail are told apart by their field
+    @pytest.mark.slow
+    def test_class_and_filter_failures_name_different_fields(self):
+        assert self.run(entity("pump")).json()["field"] == "class"

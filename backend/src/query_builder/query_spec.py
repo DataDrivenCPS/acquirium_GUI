@@ -191,6 +191,18 @@ def _safe_for_acquirium(calls: list[Call]) -> list[Call]:
         safe.append(Call(call.method, args, kwargs))
     return safe
 
+def _check_text(acq: Any, spec: QuerySpec) -> None:
+    """Raises ResolutionError, with candidates, for typed text that does not match one node confidently: class
+    text, and filter values Acquirium matches by meaning (a medium, a unit). The query still gets the typed text.
+    Literal attributes (a label) are matched verbatim, and a value that is already an identifier needs no match."""
+    for step in spec.steps:
+        if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
+            resolve_text(acq, step.cls, "class", field="class")
+        for filter_ in getattr(step, "filters", []):
+            attribute = REGISTRY[filter_.attr]
+            if not attribute.literal and not _looks_like_iri(filter_.value):
+                resolve_text(acq, filter_.value, attribute.kind, field=filter_.attr)
+
 def _check_entities_exist(acq: Any, spec: QuerySpec) -> None:
     """Raises ValueError for an entity or related step whose identifier is not in the graph. Without this,
     Acquirium answers such a step with one made-up row. The identifier is checked for safety after Acquirium
@@ -225,14 +237,12 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     """Builds the query on acq.query(), runs .metadata(), and returns
     {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS), "total_rows": int, "truncated": bool}.
 
-    Raises ValueError for an empty spec, ResolutionError (a ValueError) for entity text that does not
-    match confidently, and Acquirium itself raises ValueError for queries it rejects. The backend turns ValueError into HTTP 400.
+    Raises ValueError for an empty spec, ResolutionError (a ValueError) for class text or a filter value
+    that does not match confidently, and Acquirium itself raises ValueError for queries it rejects. The backend turns ValueError into HTTP 400.
     """
     if not spec.steps:
         raise ValueError("Add at least one step before running the query")
-    for step in spec.steps:
-        if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
-            resolve_text(acq, step.cls, "class")  # fail early with candidates; the query still gets the typed text
+    _check_text(acq, spec)
     _check_entities_exist(acq, spec)
     calls = _safe_for_acquirium(_with_labels(to_calls(spec)))
     if not calls:

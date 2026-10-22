@@ -3,7 +3,7 @@ import polars as pl
 import pytest
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import ValidationError
-from src.query_builder import MAX_ROWS, Call, QuerySpec, apply_calls, query_attributes, run_query, to_calls, to_python
+from src.query_builder import MAX_ROWS, Call, QuerySpec, ResolutionError, apply_calls, query_attributes, run_query, to_calls, to_python
 
 # query_builder is a stub: the step models (the request format) are real, the behavior is not implemented yet.
 
@@ -171,10 +171,16 @@ def test_apply_no_calls_returns_the_query():
 
 class FakeAcquirium:
     """Stands in for Acquirium: query() hands out a Recorder whose metadata() returns the given table."""
-    def __init__(self, table, existing=()):
+    def __init__(self, table, existing=(), matches=None):
         self.recorder = Recorder()
         self.recorder.metadata = lambda: table
         self.asked = []  # the existence queries sent
+        self.resolved = []  # (text, kind) of every text matched
+        def resolve(text, kind=None, **kw):
+            self.resolved.append((text, kind))
+            if matches is not None and text in matches:
+                return matches[text]
+            return [{"uri": f"ns1:{text}", "label": text, "score": 1.0}]  # by default every text matches confidently
         def sparql_query(query):
             self.asked.append(query)
             return {"columns": [], "rows": [[any(f"<{uri}>" in query for uri in existing)]]}
@@ -182,9 +188,7 @@ class FakeAcquirium:
             if text.startswith("nope:"):
                 raise ValueError(f"Cannot expand '{text}': no matching namespace")
             return text.replace("wbs:", "urn:wbs#")
-        # every class text matches confidently, so run_query's text check passes
-        self.client = SimpleNamespace(resolve=lambda text, kind=None, **kw: [{"uri": f"ns1:{text}", "label": text, "score": 1.0}],
-                                      expand_uri=expand_uri, sparql_query=sparql_query)
+        self.client = SimpleNamespace(resolve=resolve, expand_uri=expand_uri, sparql_query=sparql_query)
     def query(self):
         return self.recorder
 
@@ -283,6 +287,66 @@ def test_malformed_identifiers_are_rejected_before_acquirium(step):
 @pytest.mark.fast
 def test_well_formed_identifiers_pass_through():
     assert calls_sent(label_filter("urn:nawi-water-ontology#Pump", attr="medium"))[0].kwargs == {"medium": "urn:nawi-water-ontology#Pump"}
+
+# ---------- filter values get the same match check as class text ----------
+
+def candidate(uri, score, label):
+    return {"uri": uri, "label": label, "score": score, "match_stage": "semantic"}
+
+def filtered(attr, value, step="measurement", exclude=False):
+    return {"kind": step, "filters": [{"attr": attr, "value": value, "exclude": exclude}]}
+
+# Asserts that a filter value Acquirium matches by meaning that does not match confidently stops the run, naming the filter's attribute
+@pytest.mark.fast
+def test_unconfident_filter_value_is_rejected_with_candidates():
+    acq = FakeAcquirium(pl.DataFrame(), matches={"flow": [candidate("qk:Flow", 0.3, "Flow")]})
+    with pytest.raises(ResolutionError) as error:
+        run_query(acq, spec(filtered("quantity_kind", "flow")))
+    assert (error.value.text, error.value.field) == ("flow", "quantity_kind")
+    assert error.value.candidates[0]["uri"] == "qk:Flow"
+    assert acq.recorder.log == []
+
+# Asserts that an ambiguous filter value is rejected like ambiguous class text
+@pytest.mark.fast
+def test_ambiguous_filter_value_is_rejected():
+    two = [candidate("a:Pump", 0.9, "Pump"), candidate("b:Pump", 0.9, "Pump")]
+    with pytest.raises(ResolutionError, match="close"):
+        run_query(FakeAcquirium(pl.DataFrame(), matches={"pump": two}), spec(filtered("type", "pump", step="entity")))
+
+# Asserts that class text failing the check says its field is "class"
+@pytest.mark.fast
+def test_class_text_failure_names_the_class_field():
+    acq = FakeAcquirium(pl.DataFrame(), matches={"pmup": [candidate("ns1:Pump", 0.2, "Pump")]})
+    with pytest.raises(ResolutionError) as error:
+        run_query(acq, spec({"kind": "entity", "cls": "pmup"}))
+    assert error.value.field == "class"
+
+# Asserts that each attribute's text is matched as its own kind, and literal attributes are never matched
+@pytest.mark.fast
+def test_filter_values_are_matched_by_the_attributes_kind():
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec({"kind": "measurement", "filters": [
+        {"attr": "quantity_kind", "value": "flow"}, {"attr": "unit", "value": "bar", "exclude": True},
+        {"attr": "medium", "value": "water"}, {"attr": "label", "value": "Feed flow"}, {"attr": "data_source", "value": "SCADA"}]}))
+    assert acq.resolved == [("flow", "quantity_kind"), ("bar", "unit"), ("water", "class")]
+
+# Asserts that filters on every step that has them are checked, step by step (a step's class, then its filters)
+@pytest.mark.fast
+def test_filters_on_every_kind_of_step_are_checked():
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec({"kind": "entity", "cls": "Tank", "filters": [{"attr": "process", "value": "mixing"}]},
+                        {"kind": "related", "cls": "Pipe", "filters": [{"attr": "medium", "value": "brine"}]},
+                        {"kind": "measurement", "filters": [{"attr": "unit", "value": "bar"}]},
+                        {"kind": "where", "filters": [{"attr": "substance", "value": "salt"}]}))
+    assert acq.resolved == [("Tank", "class"), ("mixing", "process"), ("Pipe", "class"), ("brine", "class"),
+                            ("bar", "unit"), ("salt", "substance")]
+
+# Asserts that a filter value that is already an identifier is not matched again
+@pytest.mark.fast
+def test_filter_value_that_is_an_identifier_is_not_matched():
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec(filtered("medium", "urn:nawi-water-ontology#Water")))
+    assert acq.resolved == []
 
 # ---------- entities named by identifier must exist ----------
 # Acquirium answers an entity step for an identifier that is not in the graph with one made-up row, so run_query asks first.
