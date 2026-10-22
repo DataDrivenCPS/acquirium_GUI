@@ -87,9 +87,13 @@ def query_python(spec: QuerySpec):
     return {"python": to_python(spec, acq.address)}
 
 # A rejected query or text (Acquirium's ValueError: unknown alias, unresolvable text, ...) is a 400 with the
-# message and, for text that did not match confidently, the closest candidates for the user to pick from
+# message and, for text that did not match confidently, that text and the closest candidates to pick from
 def rejected(error: ValueError):
-    return JSONResponse(status_code=400, content={"detail": str(error), "candidates": getattr(error, "candidates", [])})
+    return JSONResponse(status_code=400, content={
+        "detail": str(error),
+        "candidates": getattr(error, "candidates", []),
+        "text": getattr(error, "text", None),
+    })
 
 # Matches typed text to one node, or reports the closest candidates; never runs a query
 @app.post("/query/resolve")

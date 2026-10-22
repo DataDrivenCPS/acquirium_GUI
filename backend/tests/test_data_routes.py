@@ -106,17 +106,17 @@ def test_query_run_rejected_query(api, monkeypatch):
     monkeypatch.setattr(server, "run_query", reject)
     response = api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "pmup"}]})
     assert response.status_code == 400
-    assert response.json() == {"detail": "Could not resolve 'pmup' as class", "candidates": []}
+    assert response.json() == {"detail": "Could not resolve 'pmup' as class", "candidates": [], "text": None}
 
 # Asserts that a text that does not resolve confidently comes back as a 400 with its candidates for the pick list
 @pytest.mark.fast
 def test_query_run_unresolved_text_reports_candidates(api, monkeypatch):
     def reject(acq, spec):
-        raise ResolutionError("No confident match for 'pmup'", CANDIDATES)
+        raise ResolutionError("No confident match for 'pmup'", CANDIDATES, "pmup")
     monkeypatch.setattr(server, "run_query", reject)
     response = api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "pmup"}]})
     assert response.status_code == 400
-    assert response.json() == {"detail": "No confident match for 'pmup'", "candidates": CANDIDATES}
+    assert response.json() == {"detail": "No confident match for 'pmup'", "candidates": CANDIDATES, "text": "pmup"}
 
 # ---------- /query/resolve ----------
 
@@ -140,11 +140,11 @@ def test_query_resolve_kind_defaults_to_class(api, monkeypatch):
 @pytest.mark.fast
 def test_query_resolve_reports_candidates(api, monkeypatch):
     def reject(acq, text, kind):
-        raise ResolutionError("Close matches for 'p'", CANDIDATES)
+        raise ResolutionError("Close matches for 'p'", CANDIDATES, "p")
     monkeypatch.setattr(server, "resolve_text", reject)
     response = api.post("/query/resolve", json={"text": "p"})
     assert response.status_code == 400
-    assert response.json() == {"detail": "Close matches for 'p'", "candidates": CANDIDATES}
+    assert response.json() == {"detail": "Close matches for 'p'", "candidates": CANDIDATES, "text": "p"}
 
 # Asserts that blank text and unknown kinds are rejected as invalid requests
 @pytest.mark.fast

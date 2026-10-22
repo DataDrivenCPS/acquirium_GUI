@@ -44,6 +44,7 @@ def test_low_confidence_raises_with_candidates():
         resolve_text(FakeAcq(weak), "pmup", "class")
     assert error.value.candidates == [{"uri": "ns1:Pump", "label": "Pump", "score": 0.35},
                                       {"uri": "ns1:Pipe", "label": "Pipe", "score": 0.3}]
+    assert error.value.text == "pmup"  # which typed text failed, so the UI knows which field to fill
 
 # Asserts that a confident best match still raises when the runner-up is within the margin
 @pytest.mark.fast
