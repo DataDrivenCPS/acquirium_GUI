@@ -12,7 +12,7 @@ import { fillClass, toRequest } from './steps'
 // (POST /api/query/python, see hooks/useDebouncedPost).
 function QueryWorkspace() {
   const [steps, setSteps] = useState<QueryStep[]>([])
-  const [result, setResult] = useState<QueryResult | null>(null) // the last successful run, kept while a later run fails
+  const [result, setResult] = useState<QueryResult | null>(null) // the last run, if it succeeded
   const [error, setError] = useState<RunError | null>(null)
   const [running, setRunning] = useState(false)
 
@@ -22,6 +22,7 @@ function QueryWorkspace() {
       setResult(await postJson<QueryResult>('/api/query/run', { steps: toRequest(steps) }))
       setError(null)
     } catch (caught) {
+      setResult(null) // a failed run must not leave the previous query's table up, as if it answered this one
       const failure = caught as Error
       const { candidates, text } = failure instanceof ApiError ? failure : { candidates: [], text: null }
       setError({ message: failure.message, candidates, text })

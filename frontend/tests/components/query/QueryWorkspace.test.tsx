@@ -234,4 +234,22 @@ describe('QueryWorkspace', () => {
     await userEvent.click(button('Add related entity'))
     expect(within(step(1, 'related')).getByLabelText('Via')).toHaveAttribute('placeholder', 'e.g. feeds (blank: any)')
   })
+
+  it.each([
+    ['a text that does not match', { status: 400, body: { detail: "No confident match for 'pmp'", candidates: [PUMP], text: 'pmp' } }],
+    ['a rejected query', { status: 400, body: { detail: 'refocus: unknown alias', candidates: [], text: null } }],
+  ])('clears the earlier results when a later run fails on %s, so they are not mistaken for the new query', async (_, failure) => {
+    let call = 0
+    mockFetch({ ...routes, [RUN]: () => (++call === 1 ? { body: RESULT } : failure) })
+    render(<QueryWorkspace />)
+    await userEvent.click(button('Use measurements'))
+    await userEvent.click(button('Run'))
+    await screen.findByRole('cell', { name: 'Feed flow' })
+
+    await userEvent.click(button('Run'))
+    expect(await within(builder()).findByRole('alert')).toBeInTheDocument()
+    const results = screen.getByRole('region', { name: 'Query results' })
+    expect(within(results).queryByRole('cell', { name: 'Feed flow' })).not.toBeInTheDocument()
+    expect(within(results).getByText('Run a query to see its results.')).toBeInTheDocument()
+  })
 })
