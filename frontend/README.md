@@ -12,13 +12,13 @@ environments too, and `npm run dev` starts the backend along with the page. See 
 
 | Command | What it does |
 | --- | --- |
-| `npm install` | Installs packages, then runs `uv sync` for `../backend` and `../query_builder` |
+| `npm install` | Installs packages, then runs `uv sync` for `../backend` |
 | `npm run dev` | Backend on :8000 and the page on :5173 together; Ctrl+C once stops both |
 | `npm run dev:web` / `npm run dev:api` | Only the page / only the backend |
-| `npm test` | Backend (fast), query_builder, then frontend tests |
+| `npm test` | Backend (fast), then frontend tests |
 | `npm run test:frontend` | Frontend tests once (Vitest) |
 | `npm run test:watch` | Frontend tests, re-run on every save |
-| `npm run test:backend` / `npm run test:query` | One Python suite |
+| `npm run test:backend` | The fast Python tests |
 | `npm run build` | Type-checks the app and the tests (`tsc -b`), then builds `dist/` |
 | `npm run lint` | oxlint |
 

@@ -9,9 +9,9 @@ builder that are not implemented yet.
 | --- | --- | --- |
 | [`frontend/`](frontend/) | React + TypeScript + Vite page, and the launcher that starts everything | [frontend/README.md](frontend/README.md) |
 | [`backend/`](backend/) | FastAPI server that owns one Acquirium instance and serves the page's data | [backend/README.md](backend/README.md) |
-| [`query_builder/`](query_builder/) | Python package meant to turn query builder steps into an Acquirium query and the matching Python. **Currently a stub.** | [query_builder/README.md](query_builder/README.md) |
 
-Each folder has its own `tests/`. The backend installs `query_builder` from this repo.
+Each folder has its own `tests/`. The query builder lives inside the backend, in
+[`backend/src/query_builder/`](backend/src/query_builder/).
 
 ## Prerequisites
 
@@ -27,8 +27,8 @@ cd frontend
 npm install
 ```
 
-This installs the frontend's packages, then (in its `postinstall` step) the Python environments of
-`backend/` and `query_builder/`.
+This installs the frontend's packages, then (in its `postinstall` step) the Python environment of
+`backend/`.
 
 ## Run
 
@@ -56,7 +56,7 @@ again to expand it.
 - **Graph** (right of Streams): a placeholder; nothing is plotted yet.
 - **Query builder**, **Python** and **Query results**: placeholders saying "Not implemented yet".
   They're meant to build an Acquirium query step by step, show it as Python, and show its results;
-  see [query_builder/README.md](query_builder/README.md).
+  see [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.
 - **Status** (right): each part of the system, re-checked every 3 seconds: the frontend, the
   backend, the Acquirium server, its embedding indexes and graph, the config in use, and Acquirium's
@@ -100,6 +100,6 @@ From `frontend/`:
 npm test
 ```
 
-This runs the fast backend tests, the `query_builder` tests, and the frontend tests, in that order.
-`npm run test:backend`, `npm run test:query` and `npm run test:frontend` run one suite. Each
+This runs the fast backend tests (including the query builder's) and the frontend tests, in that order.
+`npm run test:backend` and `npm run test:frontend` run one suite. Each
 folder's README covers its own tests, including the backend's slow integration tests.

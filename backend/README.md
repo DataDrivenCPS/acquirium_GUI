@@ -35,8 +35,7 @@ contents. Don't set Acquirium's `[server] port` to 8000, which this server uses.
 | `POST /query/python` | query builder steps as a Python script |
 | `POST /query/run` | query builder steps run on Acquirium; a sample table if nothing matches and there are no streams |
 
-The query routes delegate to the [`query_builder`](../query_builder/) package, which this project
-installs from `../query_builder` (see `[tool.uv.sources]` in `pyproject.toml`).
+The query routes delegate to the [`query_builder`](src/query_builder/) package inside `src/`.
 
 ## Layout
 

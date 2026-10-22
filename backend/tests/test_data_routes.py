@@ -2,7 +2,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 import src.server as server
-from query_builder import QuerySpec
+from src.query_builder import QuerySpec
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS
 from src.server import app
 from fakes import DRIVER

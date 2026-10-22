@@ -9,7 +9,7 @@ uv run --extra dev python -m pytest           # both
 ```
 
 Tests must run with `backend/` as the working directory via `python -m pytest`, so `src.*` imports
-resolve. The query builder's own tests live in [`../../query_builder/tests`](../../query_builder/tests).
+resolve. The query builder's tests are here too, in `test_query_spec.py`.
 
 Our TDD workflow should be:
 - Write failing tests to ensure desired function implementation.

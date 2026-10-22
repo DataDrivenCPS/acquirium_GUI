@@ -4,9 +4,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import acquirium as acquirium_lib
-from query_builder import QuerySpec, query_attributes, run_query, to_python
 from src.config import load_config
 from src.drivers import live_drivers
+from src.query_builder import QuerySpec, query_attributes, run_query, to_python
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS, live_or_sample
 from src.streams import has_streams, live_streams
 

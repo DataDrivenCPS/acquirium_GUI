@@ -8,7 +8,7 @@ the same steps into a standalone Python script, so the Python the page shows alw
 
 ## What exists today
 
-- **The request format** (`src/query_builder/query_spec.py`): the pydantic step models and
+- **The request format** (`query_spec.py`): the pydantic step models and
   `QuerySpec`, with their validation. The backend already uses them to parse request bodies, so
   malformed steps get a 422.
 - **`Call`** (one method call on an Acquirium `Query`) and **`MAX_ROWS`** (1000).
@@ -54,13 +54,13 @@ stand-in that records calls.
 
 ## Tests
 
-From this folder:
+From `backend/`:
 
 ```bash
-uv run --extra dev python -m pytest
+uv run --extra dev python -m pytest tests/test_query_spec.py
 ```
 
-Or `npm run test:query` from `frontend/`. Today the tests check the step validation, that each
+Today the tests check the step validation, that each
 behavior raises `NotImplementedError`, and that the public interface is still there. Replace the
 `NotImplementedError` tests with real ones as you implement each function (test first; see
 [backend/tests/README.md](../backend/tests/README.md) for the TDD workflow).
