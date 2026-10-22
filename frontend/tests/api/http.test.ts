@@ -39,6 +39,19 @@ describe('postJson', () => {
     expect(error).toMatchObject({ status: 400, message: 'bad query' })
   })
 
+  it('carries the closest candidates and the unmatched text when the backend sends them', async () => {
+    const candidates = [{ uri: 'ns1:Pump', label: 'Pump', score: 0.82 }]
+    mockFetch({ 'POST /api/run': { status: 400, body: { detail: 'close matches', candidates, text: 'pmp' } } })
+    const error = await postJson('/api/run', {}).catch((e: unknown) => e)
+    expect(error).toMatchObject({ status: 400, message: 'close matches', candidates, text: 'pmp' })
+  })
+
+  it('has no candidates and no text on other errors', async () => {
+    mockFetch({ 'POST /api/run': { status: 500, body: { detail: 'boom' } } })
+    const error = await postJson('/api/run', {}).catch((e: unknown) => e)
+    expect(error).toMatchObject({ candidates: [], text: null })
+  })
+
   it('reports an unreachable backend as an ApiError', async () => {
     mockFetch({}) // every request fails like a network error
     await expect(postJson('/api/run', {})).rejects.toMatchObject({ status: NO_RESPONSE, message: 'Backend unreachable' })

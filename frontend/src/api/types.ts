@@ -102,10 +102,14 @@ export type MeasurementStep = {
 }
 export type WhereStep = { kind: 'where'; target: string; filters: Filter[] }
 export type IncludeStep = { kind: 'include'; names: string[]; of: string; required: boolean }
+export type RefocusStep = { kind: 'refocus'; alias: string } // point the query at an existing alias
 
 // A union type: a step is exactly one of these, and its `kind` says which
-export type QueryStep = EntityStep | RelatedStep | MeasurementStep | WhereStep | IncludeStep
+export type QueryStep = EntityStep | RelatedStep | MeasurementStep | WhereStep | IncludeStep | RefocusStep
 export type StepKind = QueryStep['kind'] // 'entity' | 'related' | ...
+
+// One node that typed text could mean. score runs 0 to 1; label is null for text that was already a URI.
+export type Candidate = { uri: string; label: string | null; score: number }
 
 // POST /api/query/python answers this for { steps }
 export type PythonResponse = { python: string }
