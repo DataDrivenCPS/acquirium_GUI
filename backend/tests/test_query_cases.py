@@ -152,14 +152,28 @@ class TestWatertapQueryCases:
         response = self.run({"kind": "measurement", "filters": [attr("label", "it's")]})
         assert response.status_code == 200 and response.json()["total_rows"] == 0
 
-    # BUG: a double quote in a filter value is put into Acquirium's SPARQL unescaped, which breaks the query
-    # (a 500). Filter text reaching the query language as code should also be treated as a security issue.
+    # Asserts that quotes and injection text in a filter value are plain text that matches nothing, not a broken query
     @pytest.mark.slow
-    @pytest.mark.xfail(strict=True, reason="filter values are not escaped before they reach SPARQL")
-    @pytest.mark.parametrize("value", ['a"b', 'a"} UNION {?x ?y ?z'], ids=["double-quote", "injection"])
-    def test_double_quotes_in_a_filter_value_are_not_a_server_error(self, value):
+    @pytest.mark.parametrize("value", ['a"b', 'a\\b', 'a"} UNION {?x ?y ?z', "line\nbreak"],
+                             ids=["double-quote", "backslash", "injection", "newline"])
+    def test_special_characters_in_a_filter_value_match_nothing(self, value):
         response = self.run({"kind": "measurement", "filters": [attr("label", value)]})
-        assert response.status_code < 500
+        assert response.status_code == 200 and response.json()["total_rows"] == 0
+
+    # Asserts that a label with quotes in it is still found, so escaping does not change what a value means
+    @pytest.mark.slow
+    def test_escaping_does_not_change_which_label_matches(self):
+        everything = self.run({"kind": "measurement", "alias": "d"}).json()
+        label = everything["rows"][0][everything["columns"].index("d.label")]
+        found = self.run({"kind": "measurement", "filters": [attr("label", label)]}).json()
+        assert found["total_rows"] >= 1
+
+    # Asserts that an identifier-like value that could break out of <...> is a 400, not a query
+    @pytest.mark.slow
+    def test_malformed_identifier_is_a_400(self):
+        response = self.run({"kind": "measurement", "filters": [attr("medium", "urn:x> } UNION { ?a ?b ?c #")]})
+        assert response.status_code == 400
+        assert "not a valid identifier" in response.json()["detail"]
 
     # BUG: an entity step for a URI that does not exist answers with one bogus row instead of no rows
     @pytest.mark.slow

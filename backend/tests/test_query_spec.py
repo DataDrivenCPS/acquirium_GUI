@@ -201,6 +201,62 @@ def test_run_query_rejects_steps_that_leave_nothing_to_run():
         run_query(acq, spec({"kind": "include", "names": ["label"]}))
     assert acq.recorder.log == []
 
+# ---------- text that reaches Acquirium's query language ----------
+# Acquirium writes a literal value as "{value}" and an identifier as <{value}> without escaping either, so
+# run_query must make the value safe first. These tests check the calls Acquirium receives.
+
+def calls_sent(*steps):
+    acq = FakeAcquirium(pl.DataFrame({"x": ["a"]}))
+    run_query(acq, spec(*steps))
+    return acq.recorder.log
+
+def label_filter(value, attr="label", exclude=False):
+    return {"kind": "measurement", "filters": [{"attr": attr, "value": value, "exclude": exclude}]}
+
+# Asserts that quotes, backslashes and line breaks in a literal value are escaped, so the value stays one string
+@pytest.mark.fast
+@pytest.mark.parametrize("value, sent", [
+    ('a"b', 'a\\"b'),
+    ("a\\b", "a\\\\b"),
+    ('a"} UNION {?x ?y ?z', 'a\\"} UNION {?x ?y ?z'),
+    ("two\nlines\ttab\rend", "two\\nlines\\ttab\\rend"),
+    ("it's fine", "it's fine"),
+], ids=["quote", "backslash", "injection", "whitespace-controls", "single-quote-untouched"])
+def test_literal_values_are_escaped(value, sent):
+    assert calls_sent(label_filter(value))[0].kwargs == {"label": sent}
+
+# Asserts that an excluded literal is escaped too, inside its Not
+@pytest.mark.fast
+def test_excluded_literal_is_escaped():
+    assert calls_sent(label_filter('a"b', exclude=True))[0].kwargs == {"label": Not('a\\"b')}
+
+# Asserts that a value Acquirium matches by text, not as a literal (a medium, a unit), is sent as typed so the match still works
+@pytest.mark.fast
+def test_text_matched_values_are_not_escaped():
+    assert calls_sent(label_filter('sea "water"', attr="medium"))[0].kwargs == {"medium": 'sea "water"'}
+
+# Asserts that something that looks like an identifier but could break out of <...> is rejected, wherever it appears
+@pytest.mark.fast
+@pytest.mark.parametrize("step", [
+    label_filter("urn:x> } UNION { ?a ?b ?c #"),
+    label_filter("http://x/y z"),
+    label_filter("urn:x>", attr="medium"),
+    {"kind": "entity", "cls": "http://x/y> } #"},
+    {"kind": "entity", "uri": "urn:x> } #"},
+    {"kind": "related", "cls": "Tank", "via": "urn:p> } #"},
+], ids=["literal-iri-like", "space", "text-attr", "cls", "uri", "via"])
+def test_malformed_identifiers_are_rejected_before_acquirium(step):
+    acq = FakeAcquirium(pl.DataFrame())
+    steps = [{"kind": "entity", "cls": "Tank", "alias": "t"}, step] if step["kind"] == "related" else [step]
+    with pytest.raises(ValueError, match="not a valid identifier"):
+        run_query(acq, spec(*steps))
+    assert acq.recorder.log == []
+
+# Asserts that a well-formed identifier passes through unchanged
+@pytest.mark.fast
+def test_well_formed_identifiers_pass_through():
+    assert calls_sent(label_filter("urn:nawi-water-ontology#Pump", attr="medium"))[0].kwargs == {"medium": "urn:nawi-water-ontology#Pump"}
+
 # Asserts that to_calls still returns only what the user's steps say, so the calls shown elsewhere match the steps
 @pytest.mark.fast
 def test_to_calls_does_not_add_label_includes():

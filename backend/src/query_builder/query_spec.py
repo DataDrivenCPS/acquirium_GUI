@@ -4,6 +4,7 @@ The frontend sends a list of steps (QuerySpec). Each step turns into one method 
 explore Query (a Call), and run_query chains those calls and returns the metadata table.
 to_python is still a stub: it is meant to print the same calls as a standalone script.
 """
+import re
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union
 from acquirium.Client.explore import REGISTRY, Not
@@ -144,6 +145,48 @@ def apply_calls(query: Any, calls: list[Call]) -> Any:
         query = getattr(query, call.method)(*call.args, **call.kwargs)
     return query
 
+# Characters that cannot be in an identifier written as <...> in a query
+_BAD_IRI_CHARS = re.compile(r'[\s<>"{}|\\^`]')
+
+def _looks_like_iri(value: str) -> bool:
+    """Whether Acquirium writes this text into its query as an identifier, <value>, rather than as a literal."""
+    return "://" in value or value.startswith("urn:")
+
+def _escape_literal(value: str) -> str:
+    """The text made safe to sit between double quotes in a query (Acquirium writes literals without escaping them)."""
+    escapes = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t"}
+    return "".join(escapes.get(char, char) for char in value)
+
+def _safe_value(value: Any, literal: bool) -> Any:
+    """A filter value made safe for Acquirium's query text: an identifier must be well formed, and a literal is escaped.
+    Text that Acquirium matches by meaning (a medium, a unit) is left as typed, since it is never put in the query."""
+    if isinstance(value, Not):
+        return Not(_safe_value(value.value, literal))
+    if not isinstance(value, str):
+        return value
+    if _looks_like_iri(value):
+        if _BAD_IRI_CHARS.search(value):
+            raise ValueError(f"{value!r} is not a valid identifier")
+        return value
+    return _escape_literal(value) if literal else value
+
+def _safe_for_acquirium(calls: list[Call]) -> list[Call]:
+    """The calls with every user-typed value made safe to be written into Acquirium's query text."""
+    safe = []
+    for call in calls:
+        args = call.args
+        if call.method in ("entity", "related") and args:
+            args = (_safe_value(args[0], literal=False),)
+        kwargs = {}
+        for key, value in call.kwargs.items():
+            if key in REGISTRY:
+                value = _safe_value(value, REGISTRY[key].literal)
+            elif key in ("uri", "via"):
+                value = _safe_value(value, literal=False)
+            kwargs[key] = value
+        safe.append(Call(call.method, args, kwargs))
+    return safe
+
 def _with_labels(calls: list[Call]) -> list[Call]:
     """The calls with an include("label") right after each entity and related call, so every node comes back
     with its name and the page need not show identifiers. Measurement nodes already carry a label column, and
@@ -173,7 +216,7 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     for step in spec.steps:
         if isinstance(step, (EntityStep, RelatedStep)) and step.cls:
             resolve_text(acq, step.cls, "class")  # fail early with candidates; the query still gets the typed text
-    calls = _with_labels(to_calls(spec))
+    calls = _safe_for_acquirium(_with_labels(to_calls(spec)))
     if not calls:
         raise ValueError("There is nothing to run: add an entity, related or measurement step")
     table = apply_calls(acq.query(), calls).metadata()
