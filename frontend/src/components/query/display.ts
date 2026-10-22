@@ -8,8 +8,10 @@ export function shortName(identifier: string): string {
   return identifier.split(/[#/:]/).pop() || identifier
 }
 
-// What a column of node identifiers (an alias, like 'm') is called apart from its attributes ('m.label')
-const isAliasColumn = (column: string) => !column.includes('.')
+// A column of node identifiers (an alias, like 'm') is told apart from its attribute columns ('m.label') by
+// the others: 'm.label' is an attribute because the table has an 'm' column it is named after. An alias the
+// user typed can itself contain a dot ('pump.v2'), so a dot alone does not make a column an attribute.
+const isAliasColumn = (column: string, columns: string[]) => !columns.some((other) => column.startsWith(`${other}.`))
 
 type Cell = string | null
 export type Table = { columns: string[]; rows: Cell[][] }
@@ -27,7 +29,7 @@ export function displayTable({ columns, rows }: Pick<QueryResult, 'columns' | 'r
     columns: shown.map(({ column }) => column),
     rows: rows.map((row) =>
       shown.map(({ column, index }) => {
-        if (!isAliasColumn(column)) return row[index]
+        if (!isAliasColumn(column, columns)) return row[index]
         const label = labelOf(column) >= 0 ? row[labelOf(column)] : null
         return label ?? (row[index] === null ? null : shortName(row[index]))
       }),
