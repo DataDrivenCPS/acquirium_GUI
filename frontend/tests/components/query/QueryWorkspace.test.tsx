@@ -111,9 +111,11 @@ describe('QueryWorkspace', () => {
     await userEvent.click(button('Run'))
 
     const results = screen.getByRole('region', { name: 'Query results' })
-    expect(await within(results).findByRole('columnheader', { name: 'point.label' })).toBeInTheDocument()
-    expect(within(results).getByRole('cell', { name: 'wbs:flow-1' })).toBeInTheDocument()
-    expect(within(results).getByRole('cell', { name: 'Feed flow' })).toBeInTheDocument()
+    expect(await within(results).findByRole('columnheader', { name: 'point' })).toBeInTheDocument()
+    expect(within(results).getByRole('cell', { name: 'Feed flow' })).toBeInTheDocument() // the label, not 'wbs:flow-1'
+    expect(within(results).getByRole('cell', { name: 'flow-2' })).toBeInTheDocument() // no label: readable end of the identifier
+    expect(within(results).queryByText('wbs:flow-1')).not.toBeInTheDocument()
+    expect(within(results).queryByRole('columnheader', { name: 'point.label' })).not.toBeInTheDocument()
     expect(within(results).getByText('2 rows')).toBeInTheDocument()
     expect(within(results).queryByText('Sample data')).not.toBeInTheDocument()
 
