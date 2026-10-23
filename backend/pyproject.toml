@@ -25,8 +25,7 @@ dependencies = [
     "acquirium==0.4.0a8",
     "fastapi>=0.141.1",
     "uvicorn>=0.38.0",
-    # The query builder's steps -> Acquirium query + Python translation (../query_builder)
-    "query-builder",
+    "pydantic>=2.11",
 ]
 
 [project.optional-dependencies]
@@ -36,10 +35,6 @@ dev = [
     "httpx2>=2.13.1",
     "pytest>=9.1.1"
 ]
-
-[tool.uv.sources]
-# Installed from this repo, editable, so changes in query_builder/ apply without reinstalling
-query-builder = { path = "../query_builder", editable = true }
 
 [tool.pytest.ini_options]
 markers = [

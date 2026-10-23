@@ -1,0 +1,47 @@
+.builder-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.step {
+  margin: 0 0 8px;
+  padding: 6px 10px 8px;
+  border: 1px solid var(--border);
+}
+
+.step-fields,
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 6px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+  }
+}
+
+/* the Exclude checkbox sits beside its text instead of above it */
+.filter-row label:has(input[type='checkbox']) {
+  flex-direction: row;
+  align-items: center;
+}
+
+.run-error {
+  color: var(--error, #dc2626);
+
+  p {
+    margin: 0 0 4px;
+  }
+
+  ul {
+    margin: 0;
+    padding-inline-start: 18px;
+  }
+}

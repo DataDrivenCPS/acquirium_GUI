@@ -1,19 +1,51 @@
+import { useState } from 'react'
+import { ApiError, postJson } from '../../api/http'
+import type { Candidate, QueryResult, QueryStep } from '../../api/types'
 import PythonWindow from './PythonWindow'
-import QueryBuilderWindow from './QueryBuilderWindow'
+import QueryBuilderWindow, { type RunError } from './QueryBuilderWindow'
 import QueryResultsWindow from './QueryResultsWindow'
+import { fillPick, toRequest } from './steps'
 
-// The three query windows. STUB: they hold their places in the layout but do nothing yet.
-// The plan: this component owns the list of steps (QueryStep in api/types.ts). The builder edits it,
-// the Python window sends it to POST /api/query/python (see hooks/useDebouncedPost), and Run sends it
-// to POST /api/query/run (see postJson in api/http.ts) for the results window. Those backend routes
-// exist and answer 501 Not Implemented until the query_builder package is filled in.
+// The three query windows. This component owns the steps being built: the builder edits them,
+// and Run sends them to POST /api/query/run for the results window. Nothing is sent before Run (or before picking a closest match, which carries on with the run).
+// The Python window is still a stub: it will show the same steps as a Python script
+// (POST /api/query/python, see hooks/useDebouncedPost).
 function QueryWorkspace() {
+  const [steps, setSteps] = useState<QueryStep[]>([])
+  const [result, setResult] = useState<QueryResult | null>(null) // the last run, if it succeeded
+  const [error, setError] = useState<RunError | null>(null)
+  const [running, setRunning] = useState(false)
+
+  // Runs `toRun` (a pick runs the steps it has just changed, which state does not hold yet)
+  async function run(toRun: QueryStep[]) {
+    setRunning(true)
+    try {
+      setResult(await postJson<QueryResult>('/api/query/run', { steps: toRequest(toRun) }))
+      setError(null)
+    } catch (caught) {
+      setResult(null) // a failed run must not leave the previous query's table up, as if it answered this one
+      const failure = caught as Error
+      const { candidates, text, field } = failure instanceof ApiError ? failure : { candidates: [], text: null, field: null }
+      setError({ message: failure.message, candidates, text, field })
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  // The user chose which node their unmatched text meant: show its name there and carry on with the run
+  function pick({ text, field }: RunError, picked: Candidate) {
+    const filled = fillPick(steps, text ?? '', field, picked)
+    setSteps(filled)
+    setError(null)
+    void run(filled)
+  }
+
   return (
     // <>...</> adds no element, so each window is placed directly in the operator grid
     <>
-      <QueryBuilderWindow />
+      <QueryBuilderWindow steps={steps} onChange={setSteps} onRun={() => void run(steps)} running={running} error={error} onPick={pick} />
       <PythonWindow />
-      <QueryResultsWindow />
+      <QueryResultsWindow result={result} />
     </>
   )
 }
