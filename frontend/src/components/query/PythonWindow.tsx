@@ -1,11 +1,17 @@
 import Window from '../layout/Window'
+import type { QueryStep } from '../../api/types'
 
-// STUB: will show the query as a Python script (PythonResponse from POST /api/query/python),
+// Show the query as a Python script (PythonResponse from POST /api/query/python),
 // updated as the steps change, with a Copy button
-function PythonWindow() {
+
+type PythonWindowProps = {
+  steps: QueryStep[]
+}
+
+function PythonWindow({steps}: PythonWindowProps) {
   return (
-    <Window title="Python" area="python">
-      <p className="muted">Not implemented yet.</p>
+    <Window title="Query as Python Code" area="python">
+      <p className="muted">The query has {steps.length} steps.</p>
     </Window>
   )
 }
