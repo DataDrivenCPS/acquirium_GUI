@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 // How to show one column: its header, and what to put in its cell for a given row
 export type Column<Row> = {
   header: string
+  title?: string // shown on hover, e.g. the full name behind a shortened header
   cell: (row: Row) => ReactNode
   numeric?: boolean // right-aligned, so digits line up
 }
@@ -22,7 +23,7 @@ function DataTable<Row>({ columns, rows, rowKey, empty }: DataTableProps<Row>) {
       <thead>
         <tr>
           {columns.map((column) => (
-            <th key={column.header} className={column.numeric ? 'numeric' : undefined}>
+            <th key={column.header} title={column.title} className={column.numeric ? 'numeric' : undefined}>
               {column.header}
             </th>
           ))}

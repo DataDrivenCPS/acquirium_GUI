@@ -11,6 +11,22 @@ did not match a node. **`to_python` is still a stub** (the Python window is a pl
   calls are chained onto `acq.query()`. Unset options are left out so Acquirium's defaults apply.
 - **`run_query(acq, spec)`**: runs `.metadata()` and returns `{"columns", "rows" (first MAX_ROWS),
   "total_rows", "truncated"}`. An empty spec raises `ValueError`.
+- **Result options** (`shaping.py`): `QuerySpec.options` (`ResultOptions`) picks the table a run returns. The default
+  is the metadata table, which is never shaped. `view: "readings"` runs `.dataframe()` instead and returns the
+  matched streams' values, shaped by these options (a limit or group-by with the metadata view is rejected):
+
+  | Option | Readings view |
+  | --- | --- |
+  | `limit` | readings per stream (100 when unset, at most 100,000) |
+  | `order` | `desc` (default) is newest first, so a limit keeps the newest readings |
+  | `shape` | `wide` (a column per stream) or `narrow` (a row per reading) |
+  | `group_by` | `data_alias` or `point_id`; aggregates `value_numeric` |
+  | `aggregate` | `count`, `mean`, `min`, `max`, `sum`, `first`, `last` (`first`/`last` follow time) |
+
+  Grouping is a polars call after the pull, not an Acquirium option, and it pulls the narrow layout whatever
+  `shape` says. Readings need a measurement step. Every cell of the answer is text (or null), as before.
+  An empty readings pull is never replaced by the metadata sample rows. Not checked against real data yet:
+  that `value_numeric` is filled for the default `cast_value`; try it on the WaterTAP data.
 - **`query_attributes()`**: the attributes steps can filter on, from Acquirium's `REGISTRY`.
 - **Text matching** (`resolve.py`; applies to class text and to filter values Acquirium matches by meaning, not to verbatim attributes like a label): `resolve_text(acq, text, kind)` returns the one node a text
   names, or raises `ResolutionError` carrying the closest candidates (and the text that failed).

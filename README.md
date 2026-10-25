@@ -56,7 +56,9 @@ again to expand it.
 - **Graph** (right of Streams): a placeholder; nothing is plotted yet.
 - **Query builder** and **Query results**: build an Acquirium query step by step (entity, related
   entity, measurements, filter, refocus), press Run, and see the metadata table it returns. Typed
-  class names that don't match confidently list the closest nodes to pick from; see
+  class names that don't match confidently list the closest nodes to pick from. **View readings** (enabled once the query has a measurements step) shows the matched
+  streams' values with a data aggregation panel below them: readings per stream, order, layout, and group by
+  stream with count, mean, min, max, sum, first or last. Apply re-runs with them. See
   [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
 - **Python**: still a placeholder; it will show the query as a Python script.
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.
@@ -67,6 +69,41 @@ again to expand it.
 While Acquirium has no streams or drivers, the Streams and Drivers windows show made-up sample rows,
 marked **Sample data**. As soon as Acquirium has live data, it replaces the samples on the next
 refresh.
+
+## Aggregating readings
+
+A query first shows its **metadata**: which streams matched, with no values. To see and summarize the
+values, use the readings view.
+
+1. **Build a query with a measurements step.** Only measurements have readings. For example, press
+   *Use measurements*, press *Add filter*, and filter `quantity_kind` = `mass concentration`.
+2. **Press Run** and check the metadata: these are the streams you will get values for.
+3. **Press View readings** in the Query results window. The button is greyed out until the query has a
+   measurements step. The table now shows each stream's newest readings, one column per stream, and the
+   **Data aggregation** panel appears below it.
+4. **Shape the readings** in the panel, then press **Apply** to run the query again with your choices:
+
+   | Control | What it does |
+   | --- | --- |
+   | Readings per stream | How many readings to pull for each stream. Blank means 100; the most allowed is 100,000. |
+   | Order | *Newest first* (default) keeps the newest readings when there is a limit; *Oldest first* keeps the oldest. |
+   | Layout | *Wide* is one column per stream. *Narrow* is one row per reading (Stream, Stream Identifier, Time, Value). |
+   | Group by | *No grouping*, or *Stream* / *Stream Identifier* to get one row per stream. |
+   | Summarize with | Appears once you group: count, mean, min, max, sum, first or last of each stream's values. |
+
+5. **Press Back to metadata** to return to the matched streams.
+
+Things to know:
+
+- A grouped table always has one row per stream, so Layout is fixed while you group. Streams are the only
+  thing readings can be grouped by, because each stream has its own unit and averaging different units
+  would mean nothing.
+- *First* and *last* mean the earliest and latest reading in time, whichever order you chose.
+- *Readings per stream* limits what is pulled before summarizing, so *mean* with a limit of 10 is the mean of
+  the 10 readings you asked for, not of the stream's whole history.
+- Changing a step while readings are showing clears them, so old values are never read as the new query's.
+- An empty readings result is shown as empty; the made-up sample rows only stand in for an empty metadata table.
+- Column names are shown in plain words ("Intake In (Flow Rate)"); hover a header for the full name.
 
 ## Configuring Acquirium
 

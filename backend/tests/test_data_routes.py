@@ -98,6 +98,28 @@ def test_query_run_sample_without_live_data(api, monkeypatch):
     monkeypatch.setattr(server, "has_streams", lambda acq: False)
     assert api.post("/query/run", json=MEASUREMENT).json() == {"source": "sample", **SAMPLE_QUERY_RESULT}
 
+# Asserts that an empty readings pull is never replaced by the metadata sample: the rows would not fit the readings layout
+@pytest.mark.fast
+def test_query_run_empty_readings_is_not_sampled(api, monkeypatch):
+    monkeypatch.setattr(server, "run_query", lambda acq, spec: EMPTY_TABLE)
+    monkeypatch.setattr(server, "has_streams", lambda acq: False)
+    body = {**MEASUREMENT, "options": {"view": "readings", "limit": 10}}
+    assert api.post("/query/run", json=body).json() == {"source": "live", **EMPTY_TABLE}
+
+# Asserts that the result options reach run_query as parsed values
+@pytest.mark.fast
+def test_query_run_passes_result_options(api, monkeypatch):
+    seen = []
+    monkeypatch.setattr(server, "run_query", lambda acq, spec: seen.append(spec.options) or TABLE)
+    api.post("/query/run", json={**MEASUREMENT, "options": {"view": "readings", "limit": 10, "order": "asc", "group_by": ["data_alias"], "aggregate": "mean"}})
+    assert (seen[0].view, seen[0].limit, seen[0].order, seen[0].group_by, seen[0].aggregate) == ("readings", 10, "asc", ["data_alias"], "mean")
+
+# Asserts that out-of-range options are rejected by validation (422) before anything runs
+@pytest.mark.fast
+def test_query_run_rejects_bad_result_options(api, monkeypatch):
+    monkeypatch.setattr(server, "run_query", lambda acq, spec: TABLE)
+    assert api.post("/query/run", json={**MEASUREMENT, "options": {"limit": 0}}).status_code == 422
+
 # Asserts that a rejected query (a ValueError: unknown alias, unresolvable text, ...) comes back as a 400 with its message
 @pytest.mark.fast
 def test_query_run_rejected_query(api, monkeypatch):

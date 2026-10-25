@@ -111,6 +111,7 @@ def query_run(spec: QuerySpec):
         result = run_query(acq, spec)
     except ValueError as error:
         return rejected(error)
-    if not result["rows"] and not has_streams(acq):
+    # sample rows stand in only for the metadata table; an empty readings pull is shown as it is
+    if spec.options.view == "metadata" and not result["rows"] and not has_streams(acq):
         return {"source": "sample", **SAMPLE_QUERY_RESULT}
     return {"source": "live", **result}

@@ -10,6 +10,8 @@ from src.query_builder.query_spec import (
     to_python,
 )
 
+from src.query_builder.shaping import DEFAULT_READINGS_LIMIT, MAX_READINGS_LIMIT, ResultOptions
+
 from src.query_builder.resolve import (
     CANDIDATE_COUNT,
     RESOLVE_MARGIN,
@@ -19,5 +21,5 @@ from src.query_builder.resolve import (
     resolve_text,
 )
 
-__all__ = ["CANDIDATE_COUNT", "MAX_ROWS", "RESOLVE_MARGIN", "RESOLVE_MIN_SCORE", "Call", "QuerySpec", "ResolutionError",
-           "ResolveRequest", "apply_calls", "query_attributes", "resolve_text", "run_query", "to_calls", "to_python"]
+__all__ = ["CANDIDATE_COUNT", "DEFAULT_READINGS_LIMIT", "MAX_READINGS_LIMIT", "MAX_ROWS", "RESOLVE_MARGIN", "RESOLVE_MIN_SCORE", "Call", "QuerySpec", "ResolutionError",
+           "ResolveRequest", "ResultOptions", "apply_calls", "query_attributes", "resolve_text", "run_query", "to_calls", "to_python"]
