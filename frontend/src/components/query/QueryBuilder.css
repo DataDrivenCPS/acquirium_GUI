@@ -45,3 +45,50 @@
     padding-inline-start: 18px;
   }
 }
+
+/* the readings on top, the data aggregation panel below them */
+.readings-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* the table scrolls inside its own box (both ways, with the header staying put), so a wide or long table never
+   pushes the panel out of sight; 260px leaves room for the panel under it inside the results window's 420px */
+.readings-data {
+  min-width: 0;
+  max-height: 260px;
+  overflow: auto;
+}
+
+/* the controls sit in a row and wrap onto more rows on a narrow screen */
+.result-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+
+  h3 {
+    flex-basis: 100%; /* the heading gets a row of its own */
+    margin: 0;
+    font-size: 14px;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  /* bigger boxes: taller and with larger text, so they are easy to read and click */
+  select,
+  input,
+  button {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+}
