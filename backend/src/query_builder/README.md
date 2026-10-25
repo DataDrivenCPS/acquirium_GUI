@@ -25,8 +25,9 @@ did not match a node. **`to_python` is still a stub** (the Python window is a pl
 
   Grouping is a polars call after the pull, not an Acquirium option, and it pulls the narrow layout whatever
   `shape` says. Readings need a measurement step. Every cell of the answer is text (or null), as before.
-  An empty readings pull is never replaced by the metadata sample rows. Not checked against real data yet:
-  that `value_numeric` is filled for the default `cast_value`; try it on the WaterTAP data.
+  An empty readings pull is never replaced by the metadata sample rows. Checked on the WaterTAP seawater-ro
+  data: grouping by stream and taking the mean gives real numbers, so `value_numeric` is filled for the default
+  `cast_value`.
 - **`query_attributes()`**: the attributes steps can filter on, from Acquirium's `REGISTRY`.
 - **Text matching** (`resolve.py`; applies to class text and to filter values Acquirium matches by meaning, not to verbatim attributes like a label): `resolve_text(acq, text, kind)` returns the one node a text
   names, or raises `ResolutionError` carrying the closest candidates (and the text that failed).
