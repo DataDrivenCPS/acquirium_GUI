@@ -127,3 +127,20 @@ export type QueryResult = {
   total_rows: number // rows matched; only the first 1000 are sent
   truncated: boolean
 }
+
+// ---------- result options ----------
+// How a run is shaped. Sent as `options` next to `steps` (only when they differ from the defaults).
+
+// metadata: which nodes and streams matched. readings: the timeseries values of the matched streams.
+export type ResultView = 'metadata' | 'readings'
+export type Aggregate = 'count' | 'mean' | 'min' | 'max' | 'sum' | 'first' | 'last'
+
+// group_by is one column name here ('' = no grouping); the backend takes a list
+export type ResultOptions = {
+  view: ResultView
+  limit: number | null // readings only: most readings per stream. null = the backend's default (100)
+  order: 'asc' | 'desc' // readings only; desc = newest first
+  shape: 'wide' | 'narrow' // readings only; wide = one column per stream
+  group_by: string // readings only
+  aggregate: Aggregate // used only when group_by is set
+}
