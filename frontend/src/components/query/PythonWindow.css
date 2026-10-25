@@ -1,0 +1,10 @@
+.python-code{
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--code-bg); 
+    border: 1px solid var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+}
