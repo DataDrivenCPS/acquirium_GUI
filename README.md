@@ -56,7 +56,9 @@ again to expand it.
 - **Graph** (right of Streams): a placeholder; nothing is plotted yet.
 - **Query builder** and **Query results**: build an Acquirium query step by step (entity, related
   entity, measurements, filter, refocus), press Run, and see the metadata table it returns. Typed
-  class names that don't match confidently list the closest nodes to pick from; see
+  class names that don't match confidently list the closest nodes to pick from. **View readings** (enabled once the query has a measurements step) shows the matched
+  streams' values with a data aggregation panel below them: readings per stream, order, layout, and group by
+  stream with count, mean, min, max, sum, first or last. Apply re-runs with them. See
   [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
 - **Python**: still a placeholder; it will show the query as a Python script.
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.

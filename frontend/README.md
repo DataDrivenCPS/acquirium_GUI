@@ -41,7 +41,8 @@ src/
   components/streams/     Streams window and its filter
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
-  components/query/       QueryWorkspace owns the steps -> builder (StepEditor, steps.ts) and results windows;
+  components/query/       QueryWorkspace owns the steps and result options -> builder (StepEditor, steps.ts) and results windows
+                          (ResultOptionsPanel, options.ts: view, limit, order, layout, group-by);
                           the Python window is still a stub that says "Not implemented yet"
   components/status/      status panel (collapsible)
 tests/                    mirrors src/; support/ has the test setup, mockFetch and fixtures
