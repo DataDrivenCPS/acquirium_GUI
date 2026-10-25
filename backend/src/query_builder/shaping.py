@@ -20,7 +20,7 @@ MAX_READINGS_LIMIT = 100_000
 # Columns of the narrow readings layout that identify a stream; the only ones readings can be grouped by
 STREAM_COLUMNS = ["data_alias", "point_id"]
 # The column of the narrow readings layout that holds the numbers an aggregate works on
-VALUE_COLUMN = "value_numeric"
+VALUE_COLUMN = "value (numeric)"
 
 Aggregate = Literal["count", "mean", "min", "max", "sum", "first", "last"]
 
