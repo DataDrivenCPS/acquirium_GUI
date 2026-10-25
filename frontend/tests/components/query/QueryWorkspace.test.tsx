@@ -27,13 +27,13 @@ const step = (n: number, kind: string) => within(builder()).getByRole('group', {
 const button = (name: string) => within(builder()).getByRole('button', { name })
 
 describe('QueryWorkspace', () => {
-  it('keeps the three windows in place; only the Python window is still a placeholder', async () => {
+  it('keeps the three windows in place and the Python window asks for a step', async () => {
     mockFetch(routes)
     render(<QueryWorkspace />)
     for (const title of ['Query builder', 'Python', 'Query results']) {
       expect(screen.getByRole('region', { name: title })).toBeInTheDocument()
     }
-    expect(within(screen.getByRole('region', { name: 'Python' })).getByText('Not implemented yet.')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Python' })).getByText('Add a step to see the query as Python.')).toBeInTheDocument()
     expect(screen.getByText('Run a query to see its results.')).toBeInTheDocument()
   })
 

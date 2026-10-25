@@ -48,7 +48,7 @@ function PythonWindow({steps}: PythonWindowProps) {
 
 
   return (
-    <Window title="Query as Python Code" area="python" actions={copyButton}>
+    <Window title="Python" area="python" actions={copyButton}>
       {steps.length === 0 ? (
         <p className="muted">Add a step to see the query as Python.</p> // if no steps, load this
       ) : ( // else, load one of these options
