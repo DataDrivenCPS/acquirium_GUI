@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal, Optional, Union
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import BaseModel, BeforeValidator, Field, StringConstraints, field_validator
 from src.query_builder.resolve import resolve_text
+from src.query_builder.shaping import ResultOptions, readings_arguments, shape_readings
 
 # Most rows a query run should send back; the rest are counted but left out
 MAX_ROWS = 1000
@@ -109,8 +110,9 @@ Step = Annotated[Union[EntityStep, RelatedStep, MeasurementStep, WhereStep, Incl
                  Field(discriminator="kind")]
 
 class QuerySpec(BaseModel):
-    """The query builder's steps, in order."""
+    """The query builder's steps, in order, and the options that shape what a run returns."""
     steps: list[Step] = []
+    options: ResultOptions = Field(default_factory=ResultOptions)
 
 def _options(step: BaseModel, *names: str) -> dict:
     """The named fields of a step that are set, so unset ones fall back to Acquirium's defaults."""
@@ -234,8 +236,9 @@ def _with_labels(calls: list[Call]) -> list[Call]:
     return labelled
 
 def run_query(acq: Any, spec: QuerySpec) -> dict:
-    """Builds the query on acq.query(), runs .metadata(), and returns
-    {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS), "total_rows": int, "truncated": bool}.
+    """Builds the query on acq.query(), runs .metadata() (or .dataframe() for the readings view, see
+    ResultOptions), and returns {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS, every cell text or
+    None), "total_rows": int, "truncated": bool}.
 
     Raises ValueError for an empty spec, ResolutionError (a ValueError) for class text or a filter value
     that does not match confidently, and Acquirium itself raises ValueError for queries it rejects. The backend turns ValueError into HTTP 400.
@@ -247,10 +250,16 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     calls = _safe_for_acquirium(_with_labels(to_calls(spec)))
     if not calls:
         raise ValueError("There is nothing to run: add an entity, related or measurement step")
-    table = apply_calls(acq.query(), calls).metadata()
+    if spec.options.view == "readings" and not any(isinstance(step, MeasurementStep) for step in spec.steps):
+        raise ValueError("Readings are the values of measurements: add a measurement step, or switch to metadata")
+    query = apply_calls(acq.query(), calls)
+    if spec.options.view == "readings":
+        table = shape_readings(query.dataframe(**readings_arguments(spec.options)), spec.options)
+    else:
+        table = query.metadata()
     return {
         "columns": table.columns,
-        "rows": [list(row) for row in table.head(MAX_ROWS).rows()],
+        "rows": [[None if cell is None else str(cell) for cell in row] for row in table.head(MAX_ROWS).rows()],
         "total_rows": table.height,
         "truncated": table.height > MAX_ROWS,
     }
