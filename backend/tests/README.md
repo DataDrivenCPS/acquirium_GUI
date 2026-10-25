@@ -63,3 +63,38 @@ Make sure your test file names are prefixed with 'test_' so pytest can discover 
   `with`, so the startup code (which would start Acquirium) never runs.
 - `test_live_data.py` (slow) runs a real Acquirium with its system-metrics driver, so the streams and
   drivers routes are checked against live data.
+
+## Result options tests
+
+All are `fast`. They check how a run's readings are shaped (limit, order, layout, group-by and aggregate; see
+[backend/src/query_builder/README.md](../src/query_builder/README.md)), with a fake Acquirium and no server.
+
+`test_result_options.py`:
+
+| Test | What it checks |
+| --- | --- |
+| `test_default_options_are_the_plain_metadata_view` | A spec with no options is the metadata table, with nothing limited or grouped. |
+| `test_limit_out_of_range_is_rejected` | A limit of 0, a negative one, or above the cap is rejected, so a pull is always bounded. |
+| `test_unknown_option_values_are_rejected` | An unknown view, order, shape or aggregate is rejected. |
+| `test_group_by_is_cleaned_and_unique` | Group-by names are trimmed and blanks dropped; a repeated name is rejected. |
+| `test_metadata_view_rejects_shaping` | A limit or group-by without the readings view is rejected, not silently ignored. |
+| `test_readings_without_group_by_are_returned_as_pulled` | Ungrouped readings come back unchanged, in the layout asked for. |
+| `test_readings_group_by_stream_aggregates` | Grouping by stream gives the right mean, min, max, sum, first and last (one case each). |
+| `test_readings_group_by_count` | Count is the number of readings per stream. |
+| `test_readings_first_and_last_follow_time_not_pull_order` | First and last are earliest and latest in time even when the readings were pulled newest first. |
+| `test_readings_group_by_unknown_column_is_rejected` | Readings group only by the columns that identify a stream, and the error names them. |
+| `test_readings_empty_pull_with_group_by_is_empty` | A pull with no readings stays an empty table instead of failing on missing columns. |
+| `test_run_query_readings_passes_limit_order_and_shape` | `run_query` hands the limit, order and layout to Acquirium, and returns every cell as text. |
+| `test_run_query_readings_default_limit` | With no limit set, 100 readings per stream are pulled. |
+| `test_run_query_readings_default_order_is_newest_first` | With no order set, the newest readings come first. |
+| `test_run_query_readings_group_by_pulls_narrow` | Grouping pulls the narrow layout whatever layout was chosen, since only it can be grouped. |
+| `test_run_query_readings_without_measurements_is_rejected` | Readings need a measurements step; without one the run is rejected with a clear message. |
+| `test_run_query_metadata_view_does_not_pull_readings` | The metadata view never asks Acquirium for readings and returns the table as it is. |
+
+`test_data_routes.py`:
+
+| Test | What it checks |
+| --- | --- |
+| `test_query_run_empty_readings_is_not_sampled` | An empty readings result is not replaced by the sample rows, which have the metadata layout. |
+| `test_query_run_passes_result_options` | The options in the request reach `run_query` as parsed values. |
+| `test_query_run_rejects_bad_result_options` | An out-of-range option gets a 422 before anything runs. |
