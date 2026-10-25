@@ -65,7 +65,7 @@ describe('readings view', () => {
     expect(Object.keys(requestBodies(fetchMock, RUN)[0] as object)).toEqual(['steps'])
   })
 
-  it('runs the same steps for readings, shows them as returned and opens the aggregation panel beside them', async () => {
+  it('runs the same steps for readings, shows them as returned and opens the aggregation panel below them', async () => {
     const fetchMock = mockFetch(routes)
     render(<QueryWorkspace />)
     await queryWithMeasurements()
