@@ -44,7 +44,7 @@ function QueryWorkspace() {
     // <>...</> adds no element, so each window is placed directly in the operator grid
     <>
       <QueryBuilderWindow steps={steps} onChange={setSteps} onRun={() => void run(steps)} running={running} error={error} onPick={pick} />
-      <PythonWindow />
+      <PythonWindow steps={steps} /> 
       <QueryResultsWindow result={result} />
     </>
   )
