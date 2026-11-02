@@ -4,15 +4,15 @@ import { usePolledJson } from '../../hooks/usePolledJson'
 import DataTable, { type Column } from '../layout/DataTable'
 import PolledBody from '../layout/PolledBody'
 import Window from '../layout/Window'
-import { formatTime, formatValue, NONE } from '../../format'
+import { formatTime, formatValue, localName, NONE, unitName } from '../../format'
 import { matchesFilter } from './filter'
 
 const COLUMNS: Column<Stream>[] = [
   { header: 'Label', cell: (s) => s.label ?? NONE }, // ?? uses the right side when the left is null
   { header: 'Latest value', cell: (s) => formatValue(s.latest_value), numeric: true },
-  { header: 'Unit', cell: (s) => s.unit ?? NONE },
+  { header: 'Unit', cell: (s) => <abbr title={s.unit ?? undefined}>{unitName(s.unit)}</abbr> },
   { header: 'Latest reading (local time)', cell: (s) => formatTime(s.latest_time) },
-  { header: 'Quantity kind', cell: (s) => s.quantity_kind ?? NONE },
+  { header: 'Quantity kind', cell: (s) => <abbr title={s.quantity_kind ?? undefined}>{localName(s.quantity_kind)}</abbr> },
   { header: 'Source', cell: (s) => s.data_source ?? NONE },
   { header: 'Point', cell: (s) => <code>{s.point}</code> },
 ]
