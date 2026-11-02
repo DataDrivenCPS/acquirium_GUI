@@ -128,6 +128,14 @@ def test_refocus_without_alias_is_rejected():
     with pytest.raises(ValidationError):
         spec({"kind": "refocus", "alias": " "})
 
+# Asserts that an alias with a period is rejected, because result columns are named '<alias>.<attribute>'
+# and the page tells alias columns from attribute columns by that period
+@pytest.mark.fast
+@pytest.mark.parametrize("kind", ["entity", "related", "measurement"])
+def test_alias_with_a_period_is_rejected(kind):
+    with pytest.raises(ValidationError, match="period"):
+        spec({"kind": kind, "alias": "pump.v2"})
+
 # Asserts that an include step passes its names positionally and sets required only when asked
 @pytest.mark.fast
 def test_include_step_becomes_an_include_call():
