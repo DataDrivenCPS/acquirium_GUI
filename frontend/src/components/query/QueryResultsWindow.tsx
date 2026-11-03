@@ -1,5 +1,5 @@
 import type { QueryResult } from '../../api/types'
-import { NONE } from '../../format'
+import { localName, NONE, unitName } from '../../format'
 import DataTable, { type Column } from '../layout/DataTable'
 import { displayTable } from './display'
 import Window from '../layout/Window'
@@ -12,12 +12,19 @@ function summary({ rows, total_rows, truncated }: QueryResult): string {
   return total_rows === 1 ? '1 row' : `${count(total_rows)} rows`
 }
 
+// Attribute columns whose values are namespaced terms: shown without the namespace, which stays as alt text
+const termName = (header: string) =>
+  header.endsWith('.unit') ? unitName : header.endsWith('.quantity_kind') ? localName : null
+
 // The table the last run returned, with names shown instead of identifiers (see display.ts)
 function QueryResultsWindow({ result }: { result: QueryResult | null }) {
   const shown = displayTable(result ?? { columns: [], rows: [] })
   const columns: Column<(string | null)[]>[] = shown.columns.map((header, index) => ({
     header,
-    cell: (row) => row[index] ?? NONE,
+    cell: (row) => {
+      const name = termName(header)
+      return name === null || row[index] === null ? (row[index] ?? NONE) : <abbr title={row[index]}>{name(row[index])}</abbr>
+    },
   }))
 
   return (

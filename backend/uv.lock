@@ -48,7 +48,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "acquirium" },
     { name = "fastapi" },
-    { name = "query-builder" },
+    { name = "pydantic" },
     { name = "uvicorn" },
 ]
 
@@ -63,8 +63,8 @@ requires-dist = [
     { name = "acquirium", specifier = "==0.4.0a8" },
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.13.1" },
+    { name = "pydantic", specifier = ">=2.11" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.1.1" },
-    { name = "query-builder", editable = "../query_builder" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 provides-extras = ["dev"]
@@ -1539,23 +1539,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/83/5e/d0541596b48c5a19f85dcbea83d6673d8e91681cdf853eb194c31fc9766e/pyzmq-27.2.0-cp313-cp313-android_24_arm64_v8a.whl", hash = "sha256:c551b9e2f86dc625fcb1a032c0d68042678caf96a8dd7c28796766b673bd5b52", size = 1127193, upload-time = "2026-08-20T19:06:56.545Z" },
     { url = "https://files.pythonhosted.org/packages/50/9f/8c7411bb283982d46e6d56dca6a095678c87eb0398daead12776d9881ac2/pyzmq-27.2.0-cp313-cp313-android_24_x86_64.whl", hash = "sha256:288cc790da0e3064a14a38ddc56ba169dada8c8af4cb86518db2bcbd380eedbb", size = 1166833, upload-time = "2026-08-20T19:06:58.011Z" },
 ]
-
-[[package]]
-name = "query-builder"
-version = "0.1.0"
-source = { editable = "../query_builder" }
-dependencies = [
-    { name = "acquirium" },
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "acquirium", specifier = "==0.4.0a8" },
-    { name = "pydantic", specifier = ">=2.11" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.1.1" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "ray"

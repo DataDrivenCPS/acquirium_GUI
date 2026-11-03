@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union
 from acquirium.Client.explore import REGISTRY, Not
-from pydantic import BaseModel, BeforeValidator, Field, StringConstraints, field_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, field_validator
 from src.query_builder.resolve import resolve_text
 
 # Most rows a query run should send back; the rest are counted but left out
@@ -33,6 +33,14 @@ class Call:
     method: str
     args: tuple = ()
     kwargs: dict = field(default_factory=dict)
+
+def _no_period(alias: Optional[str]) -> Optional[str]:
+    """Result columns are named '<alias>.<attribute>', so a period in an alias would look like an attribute column."""
+    if alias and "." in alias:
+        raise ValueError(f"alias {alias!r} cannot contain a period")
+    return alias
+
+NewAlias = Annotated[Text, AfterValidator(_no_period)]
 
 class Filter(BaseModel):
     """One attribute filter, e.g. medium = "brine"; exclude=True means medium is NOT "brine"."""
@@ -64,14 +72,14 @@ class EntityStep(_FilteredStep):
     kind: Literal["entity"]
     cls: Text = None
     uri: Text = None
-    alias: Text = None
+    alias: NewAlias = None
 
 class RelatedStep(_FilteredStep):
     """Hop to a related entity: Query.related(cls, uri=, alias=, frm=, via=, direction=, max_depth=, nearest=, **filters)."""
     kind: Literal["related"]
     cls: Text = None
     uri: Text = None
-    alias: Text = None
+    alias: NewAlias = None
     frm: Text = None
     via: Text = None
     direction: Direction = None
@@ -82,7 +90,7 @@ class MeasurementStep(_FilteredStep):
     """Attach measurement points: Query.measurement(frm=, alias=, direction=, max_depth=, nearest=, **filters)."""
     kind: Literal["measurement"]
     frm: Text = None
-    alias: Text = None
+    alias: NewAlias = None
     direction: Direction = None
     max_depth: Optional[int] = Field(default=None, ge=0)
     nearest: Optional[bool] = None
