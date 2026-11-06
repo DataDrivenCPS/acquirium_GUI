@@ -30,20 +30,28 @@ the `vite` command is a batch file, and Ctrl+C makes `cmd.exe` stop to ask "Term
 
 ```
 src/
-  App.tsx, App.css        the operator grid (left) + status panel (right). Grid rows (App.css):
+  App.tsx, App.css        header (title + status button, top right) over the operator grid. Grid rows (App.css):
                           streams | graph, builder | python, results, drivers
   api/types.ts            shapes of the backend's JSON; keep in sync with backend/src/server.py
   api/http.ts             postJson(): POST helper with readable errors (ApiError)
   format.ts               formatValue, formatTime
-  hooks/                  usePolledJson (GET every 3 s), useDebouncedPost (POST once edits pause)
+  hooks/                  usePolledJson (GET every 3 s; failures before its first success are 'starting',
+                          later ones 'unreachable'), useDebouncedPost (POST once edits pause)
   components/layout/      Window (titled, collapsible panel; flags sample data), DataTable,
                           PolledBody, CollapseToggle
   components/streams/     Streams window and its filter
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
+<<<<<<< Updated upstream
   components/query/       QueryWorkspace -> builder, Python and results windows. STUB: they show
                           "Not implemented yet"; their comments say which routes and types they'll use
   components/status/      status panel (collapsible)
+=======
+  components/query/       QueryWorkspace owns the steps -> builder (StepEditor, steps.ts) and results windows;
+                          the Python window is still a stub that says "Not implemented yet"
+  components/status/      StatusPanel: a top-right button whose dot shows the worst check; it drops down
+                          the rows. useStatusRows polls the endpoints; describe.ts turns answers into rows
+>>>>>>> Stashed changes
 tests/                    mirrors src/; support/ has the test setup, mockFetch and fixtures
 ```
 

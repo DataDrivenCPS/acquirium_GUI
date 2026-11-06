@@ -1,38 +1,69 @@
-import { useId, useState } from 'react'
-import CollapseToggle from '../layout/CollapseToggle'
-import PolledStatusRow from './PolledStatusRow'
+import { useEffect, useId, useRef, useState } from 'react'
+import { TONE_SUMMARY, worstTone } from './describe'
+import StatusDot from './StatusDot'
 import StatusRow from './StatusRow'
-import {
-  describeAcquirium,
-  describeAddress,
-  describeBackend,
-  describeConfig,
-  describeEmbeddings,
-  describeGraph,
-} from './describe'
+import { useStatusRows } from './useStatusRows'
 import './StatusPanel.css'
 
-// The right-hand panel: one row per part of the system, each re-checked every few seconds.
-// Clicking its title collapses it to a narrow strip, leaving more width for the windows.
-// To add a check: write a describe function in describe.ts and add a row here.
+// A small button in the page's top-right corner. Its dot shows the worst status of all the checks;
+// clicking it drops down the full list, one row per part of the system, each re-checked every few seconds.
+// Clicking the button again, pressing Escape, or clicking anywhere else closes the list.
+// To add a check, see useStatusRows.ts.
 function StatusPanel() {
-  const [collapsed, setCollapsed] = useState(false)
-  const listId = useId()
+  const rows = useStatusRows() // keeps polling while the list is closed, so the dot stays current
+  const [open, setOpen] = useState(false)
+  const listId = useId() // a page-unique id, so the button can say which element it opens
+  // refs point at elements on the page once React has drawn them (null before that)
+  const panelRef = useRef<HTMLElement>(null) // the button and the list, to tell clicks inside from clicks outside
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  const tone = worstTone(rows.map((row) => row.tone))
+  const summary = `Status: ${TONE_SUMMARY[tone]}` // e.g. "Status: all good"
+
+  // While the list is open, listen to the whole page for Escape and for clicks outside the panel
+  useEffect(() => {
+    if (!open) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      // event.target is typed loosely as EventTarget; on a page it is always a Node, which contains() needs
+      if (!panelRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus() // puts keyboard users back on the button they opened the list from
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      // React runs this when the list closes (or the panel leaves the page), so the listeners go too
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open]) // re-run whenever the list opens or closes
+
   return (
-    <aside className={`status-panel${collapsed ? ' status-panel--collapsed' : ''}`} aria-label="System status">
-      <h2>
-        <CollapseToggle label="Status" collapsed={collapsed} controls={listId} onToggle={() => setCollapsed(!collapsed)} />
-      </h2>
-      {/* hidden, not removed: the rows keep checking while collapsed */}
-      <ul id={listId} hidden={collapsed}>
-        {/* If this page is showing, the frontend is running. MODE is 'development' under npm run dev. */}
-        <StatusRow label="Frontend" tone="ok" text="running" detail={`${import.meta.env.MODE} mode`} />
-        <PolledStatusRow label="Backend API" url="/api/" describe={describeBackend} />
-        <PolledStatusRow label="Acquirium server" url="/api/server-health" describe={describeAcquirium} />
-        <PolledStatusRow label="Embedding indexes" url="/api/embedding-status" describe={describeEmbeddings} />
-        <PolledStatusRow label="Graph" url="/api/graph-status" describe={describeGraph} />
-        <PolledStatusRow label="Config" url="/api/runtime-info" describe={describeConfig} />
-        <PolledStatusRow label="Acquirium address" url="/api/runtime-info" describe={describeAddress} />
+    <aside ref={panelRef} className="status-panel" aria-label="System status">
+      {/* aria-label adds the summary to what screen readers announce; title shows it on hover */}
+      <button
+        ref={buttonRef}
+        type="button"
+        className="status-toggle"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-label={summary}
+        title={summary}
+        onClick={() => setOpen(!open)}
+      >
+        <StatusDot tone={tone} />
+        Status
+        <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      {/* hidden, not removed, like the windows' contents */}
+      <ul id={listId} className="status-list" hidden={!open}>
+        {rows.map((row) => (
+          // key tells React which row is which between redraws; every label is unique
+          <StatusRow key={row.label} {...row} />
+        ))}
       </ul>
     </aside>
   )

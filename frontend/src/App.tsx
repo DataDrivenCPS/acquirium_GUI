@@ -7,10 +7,14 @@ import './App.css'
 
 function App() {
   return (
-    // the operator windows fill the left and the status panel sits on the right (see .app-layout in App.css)
-    <div className="app-layout">
-      <main>
+    // <> ... </> groups elements without adding an extra tag to the page
+    <>
+      {/* the title on the left and the status button on the right (see .app-header in App.css) */}
+      <header className="app-header">
         <h1>Acquirium GUI</h1> {/* h1 is the page's main heading */}
+        <StatusPanel />
+      </header>
+      <main className="app-main">
         {/* each window places itself in a named cell of this grid (grid-template-areas in App.css).
             They're listed in the same order as on screen, so the Tab key moves through them top to bottom. */}
         <div className="operator-grid">
@@ -20,8 +24,7 @@ function App() {
           <DriversWindow />
         </div>
       </main>
-      <StatusPanel />
-    </div>
+    </>
   )
 }
 

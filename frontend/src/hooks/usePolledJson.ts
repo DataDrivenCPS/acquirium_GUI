@@ -7,8 +7,9 @@ const POLL_INTERVAL_MS = 3000
 // What a poll has found so far. Only the 'ok' case carries data, so TypeScript
 // makes you check state before you can touch data.
 export type PollResult<T> =
-  | { state: 'checking' } // no answer yet
-  | { state: 'unreachable' } // the latest check failed
+  | { state: 'checking' } // the first check hasn't come back yet
+  | { state: 'starting' } // checks failed, but none has succeeded yet: the backend is probably still starting
+  | { state: 'unreachable' } // the latest check failed, after an earlier one had succeeded
   | { state: 'ok'; data: T } // the latest check succeeded
 
 // Fetches JSON from url right away and then every few seconds, so the page notices
@@ -26,7 +27,16 @@ export function usePolledJson<T>(url: string): PollResult<T> {
           return response.json()
         })
         .then((data: T) => setResult({ state: 'ok', data }))
-        .catch(() => setResult({ state: 'unreachable' })) // backend down, error, etc.
+        // Backend down, error, etc. Until the first success, a failure most likely means the backend is
+        // still starting (it accepts no requests while it starts Acquirium); after that it means it went down.
+        // Passing setResult a function lets it look at the previous result to decide.
+        .catch(() =>
+          setResult((previous) =>
+            previous.state === 'checking' || previous.state === 'starting'
+              ? { state: 'starting' }
+              : { state: 'unreachable' },
+          ),
+        )
     }
 
     check() // check once right away...

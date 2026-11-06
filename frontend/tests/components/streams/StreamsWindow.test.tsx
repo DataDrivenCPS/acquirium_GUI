@@ -36,9 +36,9 @@ describe('StreamsWindow', () => {
     expect(screen.getByText('No streams match the filter.')).toBeInTheDocument()
   })
 
-  it('says when the backend is unreachable', async () => {
-    mockFetch({})
+  it('says it is waiting while the backend has not answered yet', async () => {
+    mockFetch({}) // every request fails, like a backend that is still starting
     render(<StreamsWindow />)
-    expect(await screen.findByText(/Backend unreachable/)).toBeInTheDocument()
+    expect(await screen.findByText('Waiting for the backend to start…')).toBeInTheDocument()
   })
 })
