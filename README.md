@@ -108,6 +108,26 @@ Things to know:
 - An empty readings result is shown as empty; the made-up sample rows only stand in for an empty metadata table.
 - Column names are shown in plain words ("Intake In (Flow Rate)"); hover a header for the full name.
 
+## Exporting results
+
+The **Export** buttons above the Query results table save what the table shows as a file:
+
+| Button | File | Good for |
+| --- | --- | --- |
+| CSV | `query-readings-2026-11-08.csv` | Excel and other spreadsheets (comma-separated, opens with accents intact) |
+| JSON | `query-readings-2026-11-08.json` | Programs: a list with one object per row, keyed by column name |
+| TXT | `query-readings-2026-11-08.txt` | A quick look or pasting: tab-separated, one line per row |
+
+- The file is named after the table (`metadata` or `readings`) and the day, and your browser saves it where it
+  saves downloads.
+- The file has the same column names and values as the page, so a wide readings column is `Pump 1 | Intake In (Flow Rate)`
+  (entity, then stream) in one header. An empty value is an empty field in CSV and TXT and `null` in JSON.
+  JSON values are text, as on the page.
+- Only the rows the page holds are exported: at most 1,000. When a result is longer, the page says "Showing the first
+  1,000 of N rows" and the buttons say "Only the rows shown are exported."; set a smaller *Readings per stream* or group
+  the readings to bring the table under that.
+- The buttons are disabled until a query has run and matched something.
+
 ## Configuring Acquirium
 
 By default the backend uses `backend/acquirium.toml` if it exists, otherwise Acquirium's built-in

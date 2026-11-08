@@ -79,6 +79,29 @@ fields from `package-lock.json`.
 
 How the readings view and its aggregation panel are covered (see the root README, "Aggregating readings").
 
+`tests/components/query/exportTable.test.ts` (the text of each export format, no browser needed):
+
+| Test | What it checks |
+| --- | --- |
+| `toCsv`: writes the headers and one line per row, with a missing value left empty | Header line, one line per row, `CRLF` line ends, empty field for `null`. |
+| `toCsv`: quotes a field with a comma, a quote or a line break, and doubles the quotes inside | `a, b`, `say "hi"` and a two-line cell come out as valid CSV. |
+| `toJson`: writes one object per row, keyed by header, with null for a missing value | The JSON parses to a list of objects with the page's column names. |
+| `toJson`: numbers repeated headers so no column overwrites another | Three `Flow` columns become `Flow`, `Flow (2)` and `Flow (3)`. |
+| `toText`: writes tab-separated lines, a missing value left empty | Header line and rows joined by tabs. |
+| `toText`: turns a tab or line break inside a cell into a space so the columns stay aligned | A cell with a tab and a newline stays on one line. |
+| `toFormat` and `exportFileName`: picks the writer for the format | Each format name gets its own writer. |
+| `toFormat` and `exportFileName`: names the file after what was exported, the day and the format | `query-readings-2026-11-08.csv`, with the month and day zero-padded. |
+
+`tests/components/query/ExportButtons.test.tsx` (the buttons, with the browser's download caught so the saved file can be read):
+
+| Test | What it checks |
+| --- | --- |
+| is disabled before a run and when nothing matched, and says why | The three buttons are disabled with an explanation until there are rows. |
+| saves the table as a CSV, JSON or text file named after the view and the day | Each button saves a file with the right name, type and content. |
+| says that only the rows shown are exported when the result was cut off | The note appears only for a truncated result. |
+| exports the metadata with the names it shows, not the identifiers | The metadata file has `Feed flow`, not `wbs:flow-1`. |
+| exports the readings with the same entity and stream names as the table header | The readings file has `Pump 1 \| Intake In (Flow Rate)`, as the page does. |
+
 `tests/components/query/ResultOptions.test.tsx` renders the query windows against a fake backend:
 
 | Test | What it checks |
