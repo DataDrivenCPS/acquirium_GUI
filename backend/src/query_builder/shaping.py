@@ -85,8 +85,8 @@ def entity_columns(table: pl.DataFrame) -> list[str]:
     return [column for column in table.columns if column not in NARROW_COLUMNS]
 
 def widen(table: pl.DataFrame, order: str) -> pl.DataFrame:
-    """Narrow readings as one column per stream: 'time' and then 'Pump 1 | intake in flow rate'. A stream with
-    no entity keeps its plain name. If two streams would get the same name (one point under two entities with
+    """Narrow readings as one column per stream: 'time' and then 'Pump 1 | intake in flow rate', the columns of
+    one entity together and sorted by entity and then stream. A stream with no entity keeps its plain name. If two streams would get the same name (one point under two entities with
     the same label), their point_id is added so no reading is dropped."""
     entities = entity_columns(table)
     owner = pl.concat_list([pl.col(column) for column in entities]).list.drop_nulls().list.join(", ").fill_null("") if entities else pl.lit("")
@@ -105,7 +105,10 @@ def widen(table: pl.DataFrame, order: str) -> pl.DataFrame:
         pl.coalesce(pl.col(VALUE_COLUMN).cast(pl.String), pl.col("value_text")).alias("_value"),
     )
     wide = keyed.pivot(on="_column", index="time", values="_value", aggregate_function="first")
-    return wide.sort("time", descending=order == "desc")
+    # the pivot orders columns by when each stream first has data, which scatters an entity's streams; put them
+    # together, entity by entity (so a heading over them spans them all), each entity's streams by name
+    columns = keyed.select("_owner", "_column").unique().sort("_owner", "_column")["_column"].to_list()
+    return wide.select(["time", *columns]).sort("time", descending=order == "desc")
 
 def shape_readings(table: pl.DataFrame, options: ResultOptions) -> pl.DataFrame:
     """The pulled readings (narrow, with their entity columns) as the user asked: grouped per entity and stream

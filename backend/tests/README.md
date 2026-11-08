@@ -99,6 +99,7 @@ All are `fast`. They check how a run's readings are shaped (limit, order, layout
 | `test_stream_under_two_entities_appears_for_each` | A stream that belongs to two entities is listed once for each. |
 | `test_wide_columns_with_the_same_name_keep_their_point_id` | Two different streams that would share a wide column name get their point id added, so no readings are dropped. |
 | `test_readings_without_an_entity_step_have_no_entity_columns` | A measurements-only query returns the plain narrow columns. |
+| `test_wide_columns_are_grouped_by_entity` | All of an entity's wide columns sit together (entities in name order, streams in name order), so one heading spans them, even when its streams first have data in an interleaved order. |
 | `test_streams_are_named_by_their_label` | A stream is named by its own label (`intake in flow rate`), not by the alias of its measurement node, in wide and narrow layouts. |
 | `test_stream_without_a_label_keeps_its_alias` | A stream with no label keeps the alias Acquirium gave it, so a column is never nameless. |
 

@@ -32,7 +32,7 @@ did not match a node. **`to_python` is still a stub** (the Python window is a pl
   points), takes every other node column as an entity step, and joins on the point. The readings get one column
   per entity step, named by the step's alias, holding the entity's label (the metadata table's `<alias>.label`,
   else its identifier). A stream under several entities gets a row for each. Wide columns are named
-  `<entity> | <stream>` (with the point id added only if two streams would otherwise share a name), and grouping
+  `<entity> | <stream>` and sorted by entity, then stream, so an entity's columns sit together (with the point id added only if two streams would otherwise share a name), and grouping
   adds the entity columns to the group keys. A query with no entity step
   (only measurements) has no entity columns. The stream itself is named by its own label
   (the metadata table's `<alias>.label` of the measurement node, e.g. `intake in flow rate`), because Acquirium's

@@ -272,3 +272,19 @@ def test_streams_are_named_by_their_label():
 def test_stream_without_a_label_keeps_its_alias():
     result = run_query(acquirium(pump_query()), spec({"view": "readings", "shape": "narrow"}))
     assert {row[1] for row in result["rows"]} == {"flow"}
+
+# Asserts that the wide columns of one entity sit together, even when the streams first have data in an interleaved order
+@pytest.mark.fast
+def test_wide_columns_are_grouped_by_entity():
+    points = ["ns:a", "ns:x", "ns:b", "ns:y"]  # pump 1 stream a, pump 2 stream x, pump 1 stream b, pump 2 stream y
+    narrow = pl.DataFrame({
+        "data_alias": ["Pump_data"] * 4, "point_id": points,
+        "time": [datetime(2026, 1, 1)] * 4, "value_numeric": [1.0, 2.0, 3.0, 4.0], "value_text": [None] * 4,
+    })
+    metadata = pl.DataFrame({
+        "Pump": ["ns:p1", "ns:p1", "ns:p2", "ns:p2"], "Pump.label": ["Pump 1", "Pump 1", "Pump 2", "Pump 2"],
+        "Pump_data": ["ns:a", "ns:b", "ns:x", "ns:y"], "Pump_data.label": ["a", "b", "x", "y"],
+    })
+    result = run_query(acquirium(FakeQuery(narrow=narrow, metadata=metadata)), spec({"view": "readings", "shape": "wide"}))
+    assert result["columns"] == ["time", "Pump 1 | a", "Pump 1 | b", "Pump 2 | x", "Pump 2 | y"]
+    assert result["rows"] == [["2026-01-01 00:00:00", "1.0", "3.0", "2.0", "4.0"]]
