@@ -45,7 +45,12 @@ const titleCase = (text: string) => text.replace(/(^|[\s(])([a-z])/g, (_, before
 // says where and what ('intake in flow rate') reads better as 'Intake In (Flow Rate)'. The 'in' or 'out' stays,
 // since a stream going in and one coming out of the same thing would otherwise read the same. Anything that
 // does not look like that is only capitalized.
+// In a wide readings table the name starts with the entity the stream belongs to ('Pump 1 | intake in flow
+// rate'). The entity is a name the user knows, so it is kept exactly as it is and only the stream is shortened.
+export const ENTITY_SEPARATOR = ' | '
 export function readableStream(name: string): string {
+  const bar = name.indexOf(ENTITY_SEPARATOR)
+  if (bar >= 0) return `${name.slice(0, bar)}${ENTITY_SEPARATOR}${readableStream(name.slice(bar + ENTITY_SEPARATOR.length))}`
   const own = name.includes('__') ? name.slice(name.indexOf('__') + 2) : name
   const match = /^(.+?) (in|out) (.+)$/.exec(own)
   return titleCase(match ? `${match[1]} ${match[2]} (${match[3]})` : own)

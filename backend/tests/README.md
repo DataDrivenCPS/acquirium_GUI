@@ -78,18 +78,29 @@ All are `fast`. They check how a run's readings are shaped (limit, order, layout
 | `test_unknown_option_values_are_rejected` | An unknown view, order, shape or aggregate is rejected. |
 | `test_group_by_is_cleaned_and_unique` | Group-by names are trimmed and blanks dropped; a repeated name is rejected. |
 | `test_metadata_view_rejects_shaping` | A limit or group-by without the readings view is rejected, not silently ignored. |
-| `test_readings_without_group_by_are_returned_as_pulled` | Ungrouped readings come back unchanged, in the layout asked for. |
+| `test_readings_narrow_without_group_by_are_returned_as_pulled` | Ungrouped narrow readings come back unchanged. |
+| `test_readings_wide_is_one_column_per_stream` | Wide readings have a time column and one column per stream, in the order asked for, with values as text. |
 | `test_readings_group_by_stream_aggregates` | Grouping by stream gives the right mean, min, max, sum, first and last (one case each). |
 | `test_readings_group_by_count` | Count is the number of readings per stream. |
 | `test_readings_first_and_last_follow_time_not_pull_order` | First and last are earliest and latest in time even when the readings were pulled newest first. |
 | `test_readings_group_by_unknown_column_is_rejected` | Readings group only by the columns that identify a stream, and the error names them. |
 | `test_readings_empty_pull_with_group_by_is_empty` | A pull with no readings stays an empty table instead of failing on missing columns. |
-| `test_run_query_readings_passes_limit_order_and_shape` | `run_query` hands the limit, order and layout to Acquirium, and returns every cell as text. |
+| `test_run_query_readings_passes_limit_and_order` | `run_query` hands the limit and order to Acquirium, lays the readings out wide, and returns every cell as text. |
 | `test_run_query_readings_default_limit` | With no limit set, 100 readings per stream are pulled. |
 | `test_run_query_readings_default_order_is_newest_first` | With no order set, the newest readings come first. |
-| `test_run_query_readings_group_by_pulls_narrow` | Grouping pulls the narrow layout whatever layout was chosen, since only it can be grouped. |
+| `test_run_query_readings_narrow_has_a_row_per_reading` | The narrow layout has the stream, point, time and value columns, one row per reading. |
+| `test_run_query_readings_group_by_ignores_shape` | Grouping works whatever layout was chosen, since only the narrow one can be grouped. |
 | `test_run_query_readings_without_measurements_is_rejected` | Readings need a measurements step; without one the run is rejected with a clear message. |
 | `test_run_query_metadata_view_does_not_pull_readings` | The metadata view never asks Acquirium for readings and returns the table as it is. |
+| `test_run_query_narrow_readings_name_their_entity` | Each reading has a column with the label of the entity its stream belongs to (two pumps with the same stream name stay apart). |
+| `test_entity_without_a_label_shows_its_identifier` | An entity with no label is shown by its readable identifier, not left blank. |
+| `test_run_query_wide_readings_put_the_entity_in_the_column_name` | Wide columns read `Pump 1 \| flow` and `Pump 2 \| flow`, so each pump's readings are in their own column. |
+| `test_run_query_group_by_stream_keeps_entities_apart` | Grouping by stream gives one row (and mean) per pump, not one over both pumps. |
+| `test_stream_under_two_entities_appears_for_each` | A stream that belongs to two entities is listed once for each. |
+| `test_wide_columns_with_the_same_name_keep_their_point_id` | Two different streams that would share a wide column name get their point id added, so no readings are dropped. |
+| `test_readings_without_an_entity_step_have_no_entity_columns` | A measurements-only query returns the plain narrow columns. |
+| `test_streams_are_named_by_their_label` | A stream is named by its own label (`intake in flow rate`), not by the alias of its measurement node, in wide and narrow layouts. |
+| `test_stream_without_a_label_keeps_its_alias` | A stream with no label keeps the alias Acquirium gave it, so a column is never nameless. |
 
 `test_data_routes.py`:
 

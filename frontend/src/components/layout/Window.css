@@ -86,6 +86,17 @@
   .numeric {
     text-align: right;
   }
+
+  /* a top header row naming a group of columns; the column headers under it stick just below it */
+  th.group {
+    text-align: center;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  .sub-header th {
+    top: 28px;
+  }
 }
 
 .muted {

@@ -80,7 +80,9 @@ values, use the readings view.
 2. **Press Run** and check the metadata: these are the streams you will get values for.
 3. **Press View readings** in the Query results window. The button is greyed out until the query has a
    measurements step. The table now shows each stream's newest readings, one column per stream, and the
-   **Data aggregation** panel appears below it.
+   **Data aggregation** panel appears below it. Every stream says which entity it belongs to, so you can tell
+   which pump a reading came from: wide columns have the entity on top (`Pump 1`, spanning its streams) and each stream's name under it (`Intake In (Flow Rate)`), and the narrow and
+   grouped tables have a column named after the entity step (for example `Pump`).
 4. **Shape the readings** in the panel, then press **Apply** to run the query again with your choices:
 
    | Control | What it does |
@@ -88,14 +90,15 @@ values, use the readings view.
    | Readings per stream | How many readings to pull for each stream. Blank means 100; the most allowed is 100,000. |
    | Order | *Newest first* (default) keeps the newest readings when there is a limit; *Oldest first* keeps the oldest. |
    | Layout | *Wide* is one column per stream. *Narrow* is one row per reading (Stream, Stream Identifier, Time, Value). |
-   | Group by | *No grouping*, or *Stream* / *Stream Identifier* to get one row per stream. |
+   | Group by | *No grouping*, or *Stream* / *Stream Identifier* to get one row per entity and stream. |
    | Summarize with | Appears once you group: count, mean, min, max, sum, first or last of each stream's values. |
 
 5. **Press Back to metadata** to return to the matched streams.
 
 Things to know:
 
-- A grouped table always has one row per stream, so Layout is fixed while you group. Streams are the only
+- A grouped table always has one row per entity and stream, so Layout is fixed while you group. Two pumps that
+  both have a stream called "intake flow rate" get a row each, never one mean over both. Streams are the only
   thing readings can be grouped by, because each stream has its own unit and averaging different units
   would mean nothing.
 - *First* and *last* mean the earliest and latest reading in time, whichever order you chose.

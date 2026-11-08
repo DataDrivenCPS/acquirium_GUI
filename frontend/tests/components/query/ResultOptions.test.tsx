@@ -91,6 +91,24 @@ describe('readings view', () => {
     expect(within(results()).getByRole('columnheader', { name: 'Time' })).not.toHaveAttribute('title')
   })
 
+  it('puts the entity of each stream on top of its column, one heading over the streams that share it', async () => {
+    const wide: QueryResult = {
+      ...READINGS,
+      columns: ['time', 'Pump 1 | intake in flow rate', 'Pump 1 | intake in tds concentration', 'Pump 2 | intake in flow rate'],
+      rows: [['2026-01-01 00:00:00', '1.5', '0.2', '2.5']],
+    }
+    mockFetch({ ...routes, [RUN]: (body) => ((body as { options?: unknown }).options ? { body: wide } : { body: METADATA }) })
+    render(<QueryWorkspace />)
+    await queryWithMeasurements()
+    await userEvent.click(viewReadings())
+    const pump1 = await within(results()).findByRole('columnheader', { name: 'Pump 1' })
+    expect(pump1).toHaveAttribute('colspan', '2')
+    expect(within(results()).getByRole('columnheader', { name: 'Pump 2' })).toHaveAttribute('colspan', '1')
+    expect(within(results()).getAllByRole('columnheader', { name: 'Intake In (Flow Rate)' })).toHaveLength(2)
+    expect(within(results()).getByRole('columnheader', { name: 'Intake In (Tds Concentration)' })).toBeInTheDocument()
+    expect(within(results()).getByRole('columnheader', { name: 'Time' })).toHaveAttribute('rowspan', '2')
+  })
+
   it('applies a limit, an order and a layout from the panel', async () => {
     const fetchMock = mockFetch(routes)
     render(<QueryWorkspace />)

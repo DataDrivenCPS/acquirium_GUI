@@ -36,8 +36,8 @@ src/
   api/http.ts             postJson(): POST helper with readable errors (ApiError)
   format.ts               formatValue, formatTime
   hooks/                  usePolledJson (GET every 3 s), useDebouncedPost (POST once edits pause)
-  components/layout/      Window (titled, collapsible panel; flags sample data), DataTable,
-                          PolledBody, CollapseToggle
+  components/layout/      Window (titled, collapsible panel; flags sample data), DataTable
+                          (optional group heading over columns), PolledBody, CollapseToggle
   components/streams/     Streams window and its filter
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
@@ -88,6 +88,7 @@ How the readings view and its aggregation panel are covered (see the root README
 | sends only the steps for a plain run | A normal Run sends no options, so it is the request it always was. |
 | runs the same steps for readings, shows them as returned and opens the aggregation panel below them | View readings re-sends the same steps with the readings options; times are not shortened like identifiers. |
 | shows a stream as where and what, keeping the full name on hover | A long stream name is shortened in the header and the original is the hover text. |
+| puts the entity of each stream on top of its column, one heading over the streams that share it | Wide columns named `Pump 1 \| ...` get a `Pump 1` heading spanning both of its streams, with the stream names under it and Time across both header rows. |
 | applies a limit, an order and a layout from the panel | Apply sends the readings per stream, order and layout chosen. |
 | groups readings by stream with every aggregate, and fixes the layout while grouped | Summarize with offers all seven aggregates, Layout is disabled, and Apply sends the group-by and aggregate. |
 | goes back to the metadata, and the panel goes away | Back to metadata re-runs without options and hides the panel. |
@@ -110,8 +111,10 @@ How the readings view and its aggregation panel are covered (see the root README
 | `readableStream`: shortens (three examples) | `...__intake in flow rate` becomes `Intake In (Flow Rate)`, keeping in and out. |
 | `readableStream`: drops the node part ... keeps acronyms | A label with no where and what keeps only its own words, and `PXR` and `RO` stay as written. |
 | `readableStream`: still shortens a label that has no node part | A label without the double underscore is still reshaped. |
+| `readableStream`: keeps the entity in front of the stream exactly as it is named | `Pump 1 \| ...__intake in flow rate` becomes `Pump 1 \| Intake In (Flow Rate)`; the entity is never shortened or recapitalized. |
 | `readableHeaders`: names the fixed columns in plain words | `time`, `data_alias`, `point_id`, `value_numeric` and `value_text` get plain names. |
 | `readableHeaders`: names a summary column after its aggregate | `mean(value)` becomes `Mean Value`, and `count` becomes `Count`. |
 | `readableHeaders`: shortens the stream columns | Stream columns are shortened while Time stays. |
 | `readableHeaders`: tells a stream going in from one coming out of the same thing | `brine in` and `brine out` stay different headers. |
+| `readableHeaders`: tells the same stream of two entities apart and names the entity column | Two pumps' identical streams stay two headers, and an entity column (`Pump`) keeps its name. |
 | `readableHeaders`: falls back to the whole names when two streams still shorten to the same text | Identical shortened headers keep their full names. |

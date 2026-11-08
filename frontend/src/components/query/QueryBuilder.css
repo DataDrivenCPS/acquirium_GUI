@@ -53,6 +53,11 @@
   gap: 12px;
 }
 
+/* the Back to metadata button stays above the scrolling table, at its natural width */
+.readings-layout > button {
+  align-self: flex-start;
+}
+
 /* the table scrolls inside its own box (both ways, with the header staying put), so a wide or long table never
    pushes the panel out of sight; 260px leaves room for the panel under it inside the results window's 420px */
 .readings-data {

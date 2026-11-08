@@ -73,6 +73,11 @@ describe('readableStream', () => {
   it('still shortens a label that has no node part', () => {
     expect(readableStream('flow in pipe')).toBe('Flow In (Pipe)')
   })
+
+  it('keeps the entity in front of the stream exactly as it is named', () => {
+    expect(readableStream('Pump 1 | s223:Pump_data__intake in flow rate')).toBe('Pump 1 | Intake In (Flow Rate)')
+    expect(readableStream('p-101, RO feed | flow in pipe')).toBe('p-101, RO feed | Flow In (Pipe)')
+  })
 })
 
 describe('readableHeaders', () => {
@@ -94,6 +99,12 @@ describe('readableHeaders', () => {
   it('tells a stream going in from one coming out of the same thing', () => {
     const columns = ['time', 'a__brine in tds', 'a__brine out tds']
     expect(readableHeaders(columns)).toEqual(['Time', 'Brine In (Tds)', 'Brine Out (Tds)'])
+  })
+
+  it('tells the same stream of two entities apart and names the entity column', () => {
+    const columns = ['time', 'Pump 1 | a__intake in flow rate', 'Pump 2 | a__intake in flow rate']
+    expect(readableHeaders(columns)).toEqual(['Time', 'Pump 1 | Intake In (Flow Rate)', 'Pump 2 | Intake In (Flow Rate)'])
+    expect(readableHeaders(['Pump', 'data_alias', 'mean(value)'])).toEqual(['Pump', 'Stream', 'Mean Value'])
   })
 
   it('falls back to the whole names when two streams still shorten to the same text', () => {

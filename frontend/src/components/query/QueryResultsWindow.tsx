@@ -1,7 +1,7 @@
 import type { QueryResult, ResultOptions } from '../../api/types'
 import { NONE } from '../../format'
 import DataTable, { type Column } from '../layout/DataTable'
-import { displayTable, readableHeaders, readableStream } from './display'
+import { displayTable, ENTITY_SEPARATOR, readableHeaders, readableStream } from './display'
 import ResultOptionsPanel from './ResultOptionsPanel'
 import Window from '../layout/Window'
 
@@ -33,12 +33,17 @@ function ResultsTable({ result, ran }: { result: QueryResult | null; ran: Result
   const shown = readings ? result : displayTable(result)
   // readings name their streams 's223:Pump_data__intake in flow rate': show 'Intake In (Flow Rate)', the full name on hover
   const headers = readings ? readableHeaders(shown.columns) : shown.columns
-  const columns: Column<(string | null)[]>[] = shown.columns.map((name, index) => ({
-    header: headers[index],
-    title: headers[index].toLowerCase() === name.toLowerCase() ? undefined : name, // only a real rename needs the original on hover
-    // the narrow layout and grouped readings name the stream in a cell, not in a header
-    cell: (row) => (readings && name === 'data_alias' && row[index] ? readableStream(row[index]) : (row[index] ?? NONE)),
-  }))
+  const columns: Column<(string | null)[]>[] = shown.columns.map((name, index) => {
+    // a wide readings column reads 'Pump 1 | Intake In (Flow Rate)': the entity goes on top, the stream stays as the header
+    const bar = readings ? headers[index].indexOf(ENTITY_SEPARATOR) : -1
+    return {
+      header: bar >= 0 ? headers[index].slice(bar + ENTITY_SEPARATOR.length) : headers[index],
+      group: bar >= 0 ? headers[index].slice(0, bar) : undefined,
+      title: headers[index].toLowerCase() === name.toLowerCase() ? undefined : name, // only a real rename needs the original on hover
+      // the narrow layout and grouped readings name the stream in a cell, not in a header
+      cell: (row) => (readings && name === 'data_alias' && row[index] ? readableStream(row[index]) : (row[index] ?? NONE)),
+    }
+  })
   return (
     <>
       <p>{summary(result)}</p>
@@ -55,10 +60,10 @@ function QueryResultsWindow({ result, ran, options, onOptionsChange, onApply, ca
     <Window title="Query results" area="results" source={result?.source}>
       {readings ? (
         <div className="readings-layout">
+          <button type="button" onClick={onBackToMetadata}>
+            Back to metadata
+          </button>
           <div className="readings-data">
-            <button type="button" onClick={onBackToMetadata}>
-              Back to metadata
-            </button>
             <ResultsTable result={result} ran={ran} />
           </div>
           <ResultOptionsPanel options={options} onChange={onOptionsChange} onApply={onApply} canApply={canApply} />

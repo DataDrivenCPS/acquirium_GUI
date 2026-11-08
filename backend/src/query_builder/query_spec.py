@@ -10,7 +10,8 @@ from typing import Annotated, Any, Literal, Optional, Union
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import BaseModel, BeforeValidator, Field, StringConstraints, field_validator
 from src.query_builder.resolve import resolve_text
-from src.query_builder.shaping import ResultOptions, readings_arguments, shape_readings
+from src.query_builder.readings import pull_readings
+from src.query_builder.shaping import ResultOptions, shape_readings
 
 # Most rows a query run should send back; the rest are counted but left out
 MAX_ROWS = 1000
@@ -236,8 +237,8 @@ def _with_labels(calls: list[Call]) -> list[Call]:
     return labelled
 
 def run_query(acq: Any, spec: QuerySpec) -> dict:
-    """Builds the query on acq.query(), runs .metadata() (or .dataframe() for the readings view, see
-    ResultOptions), and returns {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS, every cell text or
+    """Builds the query on acq.query(), runs .metadata() (or pulls the readings for the readings view, see
+    ResultOptions and readings.py), and returns {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS, every cell text or
     None), "total_rows": int, "truncated": bool}.
 
     Raises ValueError for an empty spec, ResolutionError (a ValueError) for class text or a filter value
@@ -254,7 +255,7 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
         raise ValueError("Readings are the values of measurements: add a measurement step, or switch to metadata")
     query = apply_calls(acq.query(), calls)
     if spec.options.view == "readings":
-        table = shape_readings(query.dataframe(**readings_arguments(spec.options)), spec.options)
+        table = shape_readings(pull_readings(query, spec.options), spec.options)
     else:
         table = query.metadata()
     return {
