@@ -263,11 +263,50 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
         "truncated": table.height > MAX_ROWS,
     }
 
+def _format_call(call: Call) -> str:
+    """One call as a line of the chained query, e.g. Call("entity", ("Pump",), {"alias": "p"}) -> ".entity('Pump', alias='p')"."""
+    partsOfCall = [] # to hold the pieces of the call/query
+    for arg in call.args:
+        partsOfCall.append(repr(arg))
+    for key, value in call.kwargs.items():
+        partsOfCall.append(f"{key}={value!r}")
+    return f".{call.method}({', '.join(partsOfCall)})"
+
+
 def to_python(spec: QuerySpec, address: str) -> str:
-    """Should return a standalone script that connects to the Acquirium at `address` (e.g.
-    "http://127.0.0.1:58999") with acquirium.Acquirium and makes the same calls as run_query.
-    """
-    raise _not_implemented("to_python")
+    """Returns a standalone script that connects to the Acquirium at `address` and makes the same
+    calls as run_query, minus the label includes run_query adds for the page."""
+    calls = to_calls(spec)
+    if not calls:
+        raise ValueError("Add at least one step to see the query as Python") # if no query steps, generate error
+
+    # Only import Not if one of the filters excludes a value
+    uses_not = False
+    for call in calls:
+        for value in call.kwargs.values():
+            if isinstance(value, Not):                      
+                uses_not = True
+
+    # Top: imports and the connection
+    lines = ["import acquirium"]
+    if uses_not:
+        lines.append("from acquirium.Client.explore import Not")
+    lines.append("")
+    lines.append(f"acq = acquirium.init(address={address!r})") # the acq = acquirium.init(...) line
+    lines.append("")
+
+    # Middle: the chained query, one call per line
+    lines.append("table = (")
+    lines.append("    acq.query()") # indentation for readability
+    for call in calls:
+        lines.append("    " + _format_call(call)) # indentation for readability
+
+    # Bottom: run it and show the table
+    lines.append("    .metadata()")
+    lines.append(")")
+    lines.append("print(table)")
+
+    return "\n".join(lines) + "\n"
 
 def query_attributes() -> list[dict]:
     """Lists the attributes steps can filter on, from Acquirium's REGISTRY:

@@ -152,10 +152,16 @@ def test_query_resolve_reports_candidates(api, monkeypatch):
 def test_query_resolve_invalid_request(api, body):
     assert api.post("/query/resolve", json=body).status_code == 422
 
-# Asserts that while query_builder is a stub, each query route answers 501 Not Implemented with the stub's message
+# Asserts that the real to_python answers with a script for this Acquirium's address
 @pytest.mark.fast
-@pytest.mark.parametrize("method, path", [("POST", "/query/python")])
-def test_query_routes_report_the_stub(api, method, path):
-    response = api.request(method, path, json=MEASUREMENT if method == "POST" else None)
-    assert response.status_code == 501
-    assert "not implemented yet" in response.json()["detail"]
+def test_query_python_writes_the_script(api):
+    response = api.post("/query/python", json=MEASUREMENT)
+    assert response.status_code == 200
+    assert ACQUIRIUM_ADDRESS in response.json()["python"]
+
+# Asserts that no steps in a query is a 400 with a message, not a crash
+@pytest.mark.fast
+def test_query_python_without_steps(api):
+    response = api.post("/query/python", json={"steps": []})
+    assert response.status_code == 400
+    assert "at least one step" in response.json()["detail"]
