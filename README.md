@@ -128,47 +128,6 @@ The **Export** buttons above the Query results table save what the table shows a
   the readings to bring the table under that.
 - The buttons are disabled until a query has run and matched something.
 
-## Live WaterTAP data
-
-By default the GUI starts its own Acquirium server, and the WaterTAP setup in `watertap.toml` only **replays a saved
-file** (`seawater-ro_..._20250101T000000.parquet`, 30 days from 2025-01-01) that the model produced earlier. To
-see readings the WaterTAP model produces **now**, run Acquirium's simulation driver, which solves the model every
-10 seconds and stores the result with the current time. That needs WaterTAP, which is installed in the Acquirium
-repo's own environment (Python 3.12), not the GUI backend's. So the server runs from the Acquirium repo and the
-GUI connects to it by address:
-
-1. **One time, in the Acquirium repo:** install the WaterTAP extra and its solver files.
-
-   ```
-   cd ~/Desktop/csm_fierro/acquirium
-   uv sync --extra watertap
-   uv run idaes get-extensions
-   ```
-
-2. **Terminal 1, the server** (from the Acquirium repo):
-
-   ```
-   cd ~/Desktop/csm_fierro/acquirium
-   uv run --extra watertap acquirium server --config /Users/ariderritt/Desktop/csm_fierro/acquirium_gui/acquirium_GUI/backend/.acquirium/watertap-live.toml
-   ```
-
-   Wait for the log to say the driver started. It listens on `127.0.0.1:8200`.
-
-3. **Terminal 2, the GUI** (from `frontend/`):
-
-   ```
-   ACQUIRIUM_GUI_ADDRESS=http://127.0.0.1:8200 npm run dev
-   ```
-
-   `ACQUIRIUM_GUI_ADDRESS` connects the backend to the running server instead of starting its own, and then
-   `ACQUIRIUM_GUI_CONFIG` is ignored (the server has its own config and drivers). Stop the server with Ctrl+C in
-   terminal 1 when you are done; the GUI does not stop it.
-
-`backend/.acquirium/watertap-live.toml` is a local, git-ignored config (it holds absolute paths). Its readings
-grow by one row every 10 seconds, with times in UTC. The model's values come from the generator's feed inputs for
-each timestamp and a fixed seed (42), so they are deterministic for a given timestamp but are not the saved
-file's values.
-
 ## Configuring Acquirium
 
 By default the backend uses `backend/acquirium.toml` if it exists, otherwise Acquirium's built-in
