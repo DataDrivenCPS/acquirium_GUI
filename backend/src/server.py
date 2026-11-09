@@ -10,6 +10,9 @@ from src.query_builder import QuerySpec, ResolveRequest, query_attributes, resol
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS, live_or_sample
 from src.streams import has_streams, live_streams
 
+# Address of an Acquirium server that is already running (e.g. http://127.0.0.1:8200). When set, the backend connects
+# to it instead of starting its own, and CONFIG_ENV_VAR is ignored: the running server has its own config and drivers.
+ADDRESS_ENV_VAR = "ACQUIRIUM_GUI_ADDRESS"
 # Path to an Acquirium TOML config, relative to the server's working directory (backend/) or absolute.
 CONFIG_ENV_VAR = "ACQUIRIUM_GUI_CONFIG"
 # Used when CONFIG_ENV_VAR is unset and this file exists; otherwise Acquirium's built-in defaults apply.
@@ -21,11 +24,16 @@ config = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global acq, config
-    config_path = os.environ.get(CONFIG_ENV_VAR)
-    if not config_path and Path(LOCAL_CONFIG_FILE).is_file():
-        config_path = LOCAL_CONFIG_FILE
-    config = load_config(config_path) if config_path else None
-    acq = acquirium_lib.init(config=config['path'] if config else None)
+    address = os.environ.get(ADDRESS_ENV_VAR)
+    if address:
+        config = None
+        acq = acquirium_lib.init(address=address)
+    else:
+        config_path = os.environ.get(CONFIG_ENV_VAR)
+        if not config_path and Path(LOCAL_CONFIG_FILE).is_file():
+            config_path = LOCAL_CONFIG_FILE
+        config = load_config(config_path) if config_path else None
+        acq = acquirium_lib.init(config=config['path'] if config else None)
     try:
         yield
     finally:
