@@ -43,7 +43,7 @@ src/
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
   components/query/       QueryWorkspace owns the steps -> builder (StepEditor, steps.ts) and results windows;
-                          the Python window is still a stub that says "Not implemented yet"
+                          and the Python window (the steps as a Python script, with a Copy button)
   components/status/      status panel (collapsible)
 
 ## Conventions

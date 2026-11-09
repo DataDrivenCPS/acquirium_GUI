@@ -2,7 +2,7 @@
 
 The frontend sends a list of steps (QuerySpec). Each step turns into one method call on Acquirium's
 explore Query (a Call), and run_query chains those calls and returns the metadata table.
-to_python is still a stub: it is meant to print the same calls as a standalone script.
+to_python writes the same calls out as a standalone Python script.
 """
 import re
 from dataclasses import dataclass, field
@@ -13,9 +13,6 @@ from src.query_builder.resolve import resolve_text
 
 # Most rows a query run should send back; the rest are counted but left out
 MAX_ROWS = 1000
-
-def _not_implemented(name: str) -> NotImplementedError:
-    return NotImplementedError(f"query_builder.{name} is not implemented yet")
 
 def _blank_to_none(value: Any) -> Any:
     """Trims text and treats blank text as "not set", so the frontend can send its form fields as-is."""

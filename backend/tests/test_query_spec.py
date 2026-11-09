@@ -5,7 +5,6 @@ from acquirium.Client.explore import REGISTRY, Not
 from pydantic import ValidationError
 from src.query_builder import MAX_ROWS, Call, QuerySpec, ResolutionError, apply_calls, query_attributes, run_query, to_calls, to_python
 
-# query_builder is a stub: the step models (the request format) are real, the behavior is not implemented yet.
 
 def spec(*steps):
     return QuerySpec.model_validate({"steps": list(steps)})

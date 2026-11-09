@@ -51,8 +51,8 @@ def test_drivers_sample(api, monkeypatch):
     assert api.get("/drivers").json() == {"source": "sample", "drivers": SAMPLE_DRIVERS}
 
 # ---------- /query/* ----------
-# query_builder is a stub for now, so most of these tests swap its functions for fakes and check only
-# what the routes themselves do. The last test checks how the routes behave with the real stub.
+# Most of these tests swap query_builder's functions for fakes and check only what the routes themselves
+# do. The last two check /query/python with the real to_python.
 
 # Asserts that the attribute list is passed through for the builder's filter menus
 @pytest.mark.fast
