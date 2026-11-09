@@ -1,6 +1,6 @@
 import socket
 import tomllib
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 from acq_repo import (
@@ -72,3 +72,13 @@ def test_write_watertap_config_fills_template(tmp_path):
     parsed = tomllib.loads(config_path.read_text())
     assert parsed["server"]["port"] == 1234
     assert parsed["drivers"][0]["watch_dir"].startswith("/fake/acquirium/")
+
+
+# Asserts a Windows checkout path still gives valid TOML: a backslash is an escape character in a
+# TOML string, so the path must be written with forward slashes (which Windows also accepts)
+@pytest.mark.fast
+def test_write_watertap_config_writes_windows_paths_with_forward_slashes(tmp_path):
+    config_path = write_watertap_config(tmp_path, port=1234, repo=PureWindowsPath(r"C:\fake\acquirium"))
+
+    parsed = tomllib.loads(config_path.read_text())
+    assert parsed["drivers"][0]["watch_dir"].startswith("C:/fake/acquirium/")

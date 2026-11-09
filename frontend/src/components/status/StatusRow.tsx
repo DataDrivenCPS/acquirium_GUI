@@ -1,12 +1,11 @@
-import type { RowStatus } from './describe'
-
-type StatusRowProps = RowStatus & { label: string } // & combines two types: the row's status plus its label
+import type { LabeledStatus } from './describe'
+import StatusDot from './StatusDot'
 
 // One line of the status panel: ● Label: text, with an optional smaller detail line under it
-function StatusRow({ label, tone, text, detail }: StatusRowProps) {
+function StatusRow({ label, tone, text, detail }: LabeledStatus) {
   return (
     <li className="status-row">
-      <span className={`status-dot status-dot--${tone}`} aria-hidden="true" /> {/* the dot is decoration; screen readers read the text */}
+      <StatusDot tone={tone} />
       <div>
         <p>
           {label}: <strong>{text}</strong>

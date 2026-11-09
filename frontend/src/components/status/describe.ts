@@ -1,4 +1,5 @@
 import type { EmbeddingStatus, GraphStatus, Health, RuntimeInfo } from '../../api/types'
+import type { PollResult } from '../../hooks/usePolledJson'
 
 // The color of a row's dot: green = fine, amber = waiting or in progress, red = problem
 export type Tone = 'ok' | 'pending' | 'error'
@@ -6,10 +7,32 @@ export type Tone = 'ok' | 'pending' | 'error'
 // Everything one status row shows. detail is an optional, smaller second line.
 export type RowStatus = { tone: Tone; text: string; detail?: string }
 
-// What a polled row shows before the backend has given it a usable answer
-export const UNANSWERED: Record<'checking' | 'unreachable', RowStatus> = {
+// One row of the status panel: what is checked (label) and what the check found.
+// & combines two types: the row's status plus its label.
+export type LabeledStatus = RowStatus & { label: string }
+
+// How the status button sums up the whole system, read out by screen readers and shown on hover
+export const TONE_SUMMARY: Record<Tone, string> = { ok: 'all good', pending: 'waiting', error: 'problem' }
+
+// The tone of the whole system: the most serious tone among the rows (a problem outweighs a wait)
+export function worstTone(tones: Tone[]): Tone {
+  if (tones.includes('error')) return 'error'
+  if (tones.includes('pending')) return 'pending'
+  return 'ok'
+}
+
+// What a polled row shows before the backend has given it a usable answer.
+// Starting is amber, not red: the backend is expected to be unreachable while it starts.
+const UNANSWERED: Record<'checking' | 'starting' | 'unreachable', RowStatus> = {
   checking: { tone: 'pending', text: 'checking' },
+  starting: { tone: 'pending', text: 'starting' },
   unreachable: { tone: 'error', text: 'unreachable' },
+}
+
+// What a polled row shows: its describe function's answer once the endpoint has replied,
+// otherwise 'checking', 'starting' or 'unreachable'. <T> is the shape of that endpoint's JSON.
+export function describePoll<T>(result: PollResult<T>, describe: (data: T) => RowStatus): RowStatus {
+  return result.state === 'ok' ? describe(result.data) : UNANSWERED[result.state]
 }
 
 // Each function below turns one endpoint's JSON into what its row shows.
