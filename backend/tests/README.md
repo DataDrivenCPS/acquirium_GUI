@@ -103,6 +103,14 @@ All are `fast`. They check how a run's readings are shaped (limit, order, layout
 | `test_streams_are_named_by_their_label` | A stream is named by its own label (`intake in flow rate`), not by the alias of its measurement node, in wide and narrow layouts. |
 | `test_stream_without_a_label_keeps_its_alias` | A stream with no label keeps the alias Acquirium gave it, so a column is never nameless. |
 
+`test_startup.py` (how the backend connects to Acquirium when it starts; Acquirium's `init()` is replaced by a recorder):
+
+| Test | What it checks |
+| --- | --- |
+| `test_starts_its_own_server_by_default` | With no address and no config, Acquirium is started with its defaults, and shut down at the end, as before. |
+| `test_connects_to_a_running_server_when_given_an_address` | `ACQUIRIUM_GUI_ADDRESS` connects to that server and starts nothing of its own. |
+| `test_address_wins_over_a_config` | With both an address and a config, only the address is used (the running server has its own config). |
+
 `test_data_routes.py`:
 
 | Test | What it checks |
