@@ -1,10 +1,21 @@
+import type { Candidate } from './types'
+
 // Thrown when the backend answers with an error status. message is ready to show on the page.
+// When typed text did not match one node confidently, text is what was typed, field is where it was
+// typed ('class', or the attribute of a filter) and candidates are the closest nodes (best first) to
+// choose from; otherwise they are null and empty.
 export class ApiError extends Error {
   readonly status: number
+  readonly candidates: Candidate[]
+  readonly text: string | null
+  readonly field: string | null
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, candidates: Candidate[] = [], text: string | null = null, field: string | null = null) {
     super(message)
     this.status = status
+    this.candidates = candidates
+    this.text = text
+    this.field = field
   }
 }
 
@@ -35,6 +46,17 @@ export function errorMessage(status: number, body: unknown): string {
   return `Request failed (HTTP ${status})`
 }
 
+// The candidates, unmatched text and its field of an error response, when it has them
+function resolutionDetails(body: unknown): { candidates: Candidate[]; text: string | null; field: string | null } {
+  const fields =
+    typeof body === 'object' && body !== null ? (body as { candidates?: unknown; text?: unknown; field?: unknown }) : {}
+  return {
+    candidates: Array.isArray(fields.candidates) ? (fields.candidates as Candidate[]) : [],
+    text: typeof fields.text === 'string' ? fields.text : null,
+    field: typeof fields.field === 'string' ? fields.field : null,
+  }
+}
+
 // Status we give ApiError when no answer came back at all (the backend is down or unreachable)
 export const NO_RESPONSE = 0
 
@@ -55,6 +77,9 @@ export async function postJson<T>(url: string, body: unknown, signal?: AbortSign
     throw new ApiError(NO_RESPONSE, 'Backend unreachable')
   }
   const data: unknown = await response.json().catch(() => undefined) // an error page may not be JSON
-  if (!response.ok) throw new ApiError(response.status, errorMessage(response.status, data))
+  if (!response.ok) {
+    const { candidates, text, field } = resolutionDetails(data)
+    throw new ApiError(response.status, errorMessage(response.status, data), candidates, text, field)
+  }
   return data as T
 }

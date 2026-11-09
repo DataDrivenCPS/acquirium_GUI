@@ -76,12 +76,17 @@ export type QueryAttribute = {
 export type Direction = 'upstream' | 'downstream'
 
 // One attribute filter, e.g. medium = 'brine'. exclude flips it to "medium is NOT brine".
-export type Filter = { attr: string; value: string; exclude: boolean }
+// value is what the user sees; value_uri is the identifier of the node they picked from the closest
+// matches ('' when they typed the text themselves), sent instead of value and never shown.
+export type Filter = { attr: string; value: string; value_uri: string; exclude: boolean }
 
-export type EntityStep = { kind: 'entity'; cls: string; uri: string; alias: string; filters: Filter[] }
+// cls is what the user sees in the Class box; cls_uri is the identifier of the node they picked from the
+// closest matches ('' when they typed the text themselves). Only cls_uri's identifier is sent, never shown.
+export type EntityStep = { kind: 'entity'; cls: string; cls_uri: string; uri: string; alias: string; filters: Filter[] }
 export type RelatedStep = {
   kind: 'related'
   cls: string
+  cls_uri: string
   uri: string
   alias: string
   frm: string // alias to start from; blank = the previous step's node
@@ -102,10 +107,14 @@ export type MeasurementStep = {
 }
 export type WhereStep = { kind: 'where'; target: string; filters: Filter[] }
 export type IncludeStep = { kind: 'include'; names: string[]; of: string; required: boolean }
+export type RefocusStep = { kind: 'refocus'; alias: string } // point the query at an existing alias
 
 // A union type: a step is exactly one of these, and its `kind` says which
-export type QueryStep = EntityStep | RelatedStep | MeasurementStep | WhereStep | IncludeStep
+export type QueryStep = EntityStep | RelatedStep | MeasurementStep | WhereStep | IncludeStep | RefocusStep
 export type StepKind = QueryStep['kind'] // 'entity' | 'related' | ...
+
+// One node that typed text could mean. score runs 0 to 1.
+export type Candidate = { uri: string; label: string; score: number; source: string | null } // source: the ontology it comes from, in plain words
 
 // POST /api/query/python answers this for { steps }
 export type PythonResponse = { python: string }

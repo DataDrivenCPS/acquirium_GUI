@@ -13,10 +13,18 @@ describe('StreamsWindow', () => {
     render(<StreamsWindow />)
     const cpuRow = (await screen.findByRole('cell', { name: 'CPU usage' })).closest('tr')!
     expect(within(cpuRow).getByRole('cell', { name: '15.5' })).toBeInTheDocument()
-    expect(within(cpuRow).getByRole('cell', { name: 'unit:PERCENT' })).toBeInTheDocument()
+    expect(within(cpuRow).getByRole('cell', { name: 'PERCENT' })).toBeInTheDocument()
+    expect(within(cpuRow).getByTitle('unit:PERCENT')).toBeInTheDocument()
+    expect(within(cpuRow).getByTitle('quantitykind:DimensionlessRatio')).toHaveTextContent('DimensionlessRatio')
     const pumpRow = screen.getByRole('cell', { name: 'Pump state' }).closest('tr')!
     expect(within(pumpRow).getByRole('cell', { name: 'running' })).toBeInTheDocument()
     expect(within(streamsWindow()).queryByText('Sample data')).not.toBeInTheDocument()
+  })
+
+  it('shows unitless streams as unitless, with the full name as alt text', async () => {
+    mockFetch({ 'GET /api/streams': { body: { source: 'live', streams: [{ ...CPU, unit: 'unit:UNITLESS' }] } } })
+    render(<StreamsWindow />)
+    expect(await screen.findByTitle('unit:UNITLESS')).toHaveTextContent('unitless')
   })
 
   it('flags sample streams', async () => {

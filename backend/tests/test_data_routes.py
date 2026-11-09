@@ -2,7 +2,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 import src.server as server
-from query_builder import QuerySpec
+from src.query_builder import QuerySpec, ResolutionError
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS
 from src.server import app
 from fakes import DRIVER
@@ -13,6 +13,7 @@ STREAM = {"point": "ns1:cpu_percent", "label": "CPU usage", "quantity_kind": Non
 MEASUREMENT = {"steps": [{"kind": "measurement"}]}
 ATTRIBUTE = {"name": "medium", "roles": ["data", "entity"], "doc": "carried medium"}
 TABLE = {"columns": ["data"], "rows": [["ns1:cpu_percent"]], "total_rows": 1, "truncated": False}
+CANDIDATES = [{"uri": "ns1:Pump", "label": "Pump", "score": 0.82}, {"uri": "ns1:Pipe", "label": "Pipe", "score": 0.78}]
 EMPTY_TABLE = {"columns": ["data"], "rows": [], "total_rows": 0, "truncated": False}
 
 @pytest.fixture
@@ -105,11 +106,55 @@ def test_query_run_rejected_query(api, monkeypatch):
     monkeypatch.setattr(server, "run_query", reject)
     response = api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "pmup"}]})
     assert response.status_code == 400
-    assert response.json() == {"detail": "Could not resolve 'pmup' as class"}
+    assert response.json() == {"detail": "Could not resolve 'pmup' as class", "candidates": [], "text": None, "field": None}
+
+# Asserts that a text that does not resolve confidently comes back as a 400 with its candidates for the pick list
+@pytest.mark.fast
+def test_query_run_unresolved_text_reports_candidates(api, monkeypatch):
+    def reject(acq, spec):
+        raise ResolutionError("No confident match for 'pmup'", CANDIDATES, "pmup", "medium")
+    monkeypatch.setattr(server, "run_query", reject)
+    response = api.post("/query/run", json={"steps": [{"kind": "entity", "cls": "pmup"}]})
+    assert response.status_code == 400
+    assert response.json() == {"detail": "No confident match for 'pmup'", "candidates": CANDIDATES, "text": "pmup", "field": "medium"}
+
+# ---------- /query/resolve ----------
+
+# Asserts that a confident match is returned for the builder to show
+@pytest.mark.fast
+def test_query_resolve_match(api, monkeypatch):
+    monkeypatch.setattr(server, "resolve_text", lambda acq, text, kind: CANDIDATES[0] if (text, kind) == ("pump", "class") else None)
+    response = api.post("/query/resolve", json={"text": "pump", "kind": "class"})
+    assert response.status_code == 200
+    assert response.json() == CANDIDATES[0]
+
+# Asserts that the kind defaults to class
+@pytest.mark.fast
+def test_query_resolve_kind_defaults_to_class(api, monkeypatch):
+    seen = []
+    monkeypatch.setattr(server, "resolve_text", lambda acq, text, kind: seen.append(kind) or CANDIDATES[0])
+    api.post("/query/resolve", json={"text": "pump"})
+    assert seen == ["class"]
+
+# Asserts that an unresolved text is a 400 with candidates, like a run
+@pytest.mark.fast
+def test_query_resolve_reports_candidates(api, monkeypatch):
+    def reject(acq, text, kind):
+        raise ResolutionError("Close matches for 'p'", CANDIDATES, "p")
+    monkeypatch.setattr(server, "resolve_text", reject)
+    response = api.post("/query/resolve", json={"text": "p"})
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Close matches for 'p'", "candidates": CANDIDATES, "text": "p", "field": None}
+
+# Asserts that blank text and unknown kinds are rejected as invalid requests
+@pytest.mark.fast
+@pytest.mark.parametrize("body", [{"text": "  "}, {"text": "pump", "kind": "colour"}])
+def test_query_resolve_invalid_request(api, body):
+    assert api.post("/query/resolve", json=body).status_code == 422
 
 # Asserts that while query_builder is a stub, each query route answers 501 Not Implemented with the stub's message
 @pytest.mark.fast
-@pytest.mark.parametrize("method, path", [("GET", "/query/attributes"), ("POST", "/query/python"), ("POST", "/query/run")])
+@pytest.mark.parametrize("method, path", [("POST", "/query/python")])
 def test_query_routes_report_the_stub(api, method, path):
     response = api.request(method, path, json=MEASUREMENT if method == "POST" else None)
     assert response.status_code == 501

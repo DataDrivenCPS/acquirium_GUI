@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatTime, formatValue, NONE } from '../src/format'
+import { formatTime, formatValue, localName, NONE, unitName } from '../src/format'
 
 describe('formatValue', () => {
   it('shows numbers with separators and at most 3 decimals', () => {
@@ -22,5 +22,34 @@ describe('formatTime', () => {
 
   it('shows a dash for no time', () => {
     expect(formatTime(null)).toBe(NONE)
+  })
+})
+
+describe('localName', () => {
+  it('drops the namespace prefix', () => {
+    expect(localName('unit:PERCENT')).toBe('PERCENT')
+    expect(localName('quantitykind:DimensionlessRatio')).toBe('DimensionlessRatio')
+  })
+
+  it('drops a full URI up to the last # or /', () => {
+    expect(localName('http://qudt.org/vocab/unit/BAR')).toBe('BAR')
+    expect(localName('http://qudt.org/vocab/quantitykind#Pressure')).toBe('Pressure')
+  })
+
+  it('leaves a name with no namespace alone and shows a dash for none', () => {
+    expect(localName('Pressure')).toBe('Pressure')
+    expect(localName(null)).toBe(NONE)
+  })
+})
+
+describe('unitName', () => {
+  it('shows unitless units as unitless', () => {
+    expect(unitName('unit:UNITLESS')).toBe('unitless')
+    expect(unitName('http://qudt.org/vocab/unit/UNITLESS')).toBe('unitless')
+  })
+
+  it('otherwise behaves like localName', () => {
+    expect(unitName('unit:BAR')).toBe('BAR')
+    expect(unitName(null)).toBe(NONE)
   })
 })

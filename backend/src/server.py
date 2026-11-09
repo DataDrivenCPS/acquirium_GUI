@@ -1,12 +1,12 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import acquirium as acquirium_lib
-from query_builder import QuerySpec, query_attributes, run_query, to_python
 from src.config import load_config
 from src.drivers import live_drivers
+from src.query_builder import QuerySpec, ResolveRequest, query_attributes, resolve_text, run_query, to_python
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS, live_or_sample
 from src.streams import has_streams, live_streams
 
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Code that isn't written yet (the query_builder stub) raises NotImplementedError; report it as 501, not a crash
+# Code that isn't written yet (query_builder's to_python) raises NotImplementedError; report it as 501, not a crash
 @app.exception_handler(NotImplementedError)
 def not_implemented(request: Request, error: NotImplementedError):
     return JSONResponse(status_code=501, content={"detail": str(error)})
@@ -86,13 +86,31 @@ def get_query_attributes():
 def query_python(spec: QuerySpec):
     return {"python": to_python(spec, acq.address)}
 
+# A rejected query or text (Acquirium's ValueError: unknown alias, unresolvable text, ...) is a 400 with the
+# message and, for text that did not match confidently, that text, where it was typed, and the closest candidates to pick from
+def rejected(error: ValueError):
+    return JSONResponse(status_code=400, content={
+        "detail": str(error),
+        "candidates": getattr(error, "candidates", []),
+        "text": getattr(error, "text", None),
+        "field": getattr(error, "field", None),
+    })
+
+# Matches typed text to one node, or reports the closest candidates; never runs a query
+@app.post("/query/resolve")
+def query_resolve(request: ResolveRequest):
+    try:
+        return resolve_text(acq, request.text, request.kind)
+    except ValueError as error:
+        return rejected(error)
+
 # Runs query builder steps on Acquirium; a sample result when it matches nothing and Acquirium has no streams
 @app.post("/query/run")
 def query_run(spec: QuerySpec):
     try:
         result = run_query(acq, spec)
-    except ValueError as error:  # Acquirium's way of rejecting a query: unknown alias, unresolvable text, ...
-        raise HTTPException(status_code=400, detail=str(error))
+    except ValueError as error:
+        return rejected(error)
     if not result["rows"] and not has_streams(acq):
         return {"source": "sample", **SAMPLE_QUERY_RESULT}
     return {"source": "live", **result}
