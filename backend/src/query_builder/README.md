@@ -1,7 +1,7 @@
 # query_builder
 
 Turns the operator page's query builder steps into an Acquirium query, runs it, and reports text that
-did not match a node. **`to_python` is still a stub** (the Python window is a placeholder too).
+did not match a node. 
 
 ## What exists
 
@@ -15,7 +15,9 @@ did not match a node. **`to_python` is still a stub** (the Python window is a pl
 - **Text matching** (`resolve.py`; applies to class text and to filter values Acquirium matches by meaning, not to verbatim attributes like a label): `resolve_text(acq, text, kind)` returns the one node a text
   names, or raises `ResolutionError` carrying the closest candidates (and the text that failed).
   `run_query` checks every class and filter value this way before building the query.
-- **Not implemented:** `to_python(spec, address)`.
+- **`to_python(spec, address)`**: the same calls as a standalone script that connects with
+  `acquirium.init(address=...)` and prints the `.metadata()` table. Leaves out the label includes
+  `run_query` adds for the page. An empty spec raises `ValueError` (a 400 from the route).
 
 | Step `kind` | Becomes | Main fields |
 | --- | --- | --- |

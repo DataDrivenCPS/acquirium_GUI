@@ -7,9 +7,9 @@ import QueryResultsWindow from './QueryResultsWindow'
 import { fillPick, toRequest } from './steps'
 
 // The three query windows. This component owns the steps being built: the builder edits them,
-// and Run sends them to POST /api/query/run for the results window. Nothing is sent before Run (or before picking a closest match, which carries on with the run).
-// The Python window is still a stub: it will show the same steps as a Python script
-// (POST /api/query/python, see hooks/useDebouncedPost).
+// and Run sends them to POST /api/query/run for the results window (picking a closest match also runs).
+// The Python window shows the same steps as a Python script, asking POST /api/query/python as they
+// change (debounced, see hooks/useDebouncedPost); it never runs the query.
 function QueryWorkspace() {
   const [steps, setSteps] = useState<QueryStep[]>([])
   const [result, setResult] = useState<QueryResult | null>(null) // the last run, if it succeeded

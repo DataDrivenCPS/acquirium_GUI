@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Code that isn't written yet (query_builder's to_python) raises NotImplementedError; report it as 501, not a crash
+# Code that isn't written yet raises NotImplementedError; report it as 501, not a crash
 @app.exception_handler(NotImplementedError)
 def not_implemented(request: Request, error: NotImplementedError):
     return JSONResponse(status_code=501, content={"detail": str(error)})
@@ -84,7 +84,10 @@ def get_query_attributes():
 # Translates query builder steps into a Python script that runs the same query
 @app.post("/query/python")
 def query_python(spec: QuerySpec):
-    return {"python": to_python(spec, acq.address)}
+    try:
+        return {"python": to_python(spec, acq.address)}
+    except ValueError as error: # ValueError whenever there are no steps in the query 
+        return rejected(error)
 
 # A rejected query or text (Acquirium's ValueError: unknown alias, unresolvable text, ...) is a 400 with the
 # message and, for text that did not match confidently, that text, where it was typed, and the closest candidates to pick from

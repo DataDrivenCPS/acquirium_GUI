@@ -1,7 +1,6 @@
-cd..# Acquirium GUI
+# Acquirium GUI
 
-A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium): live streams and the drivers feeding them, with places reserved for a graph and a query
-builder that are not implemented yet.
+A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium): live streams and the drivers feeding them, a query builder with its results and the query as Python, and a place reserved for a graph that is not implemented yet.
 
 ## Repository layout
 
@@ -60,7 +59,7 @@ again to expand it.
   entity, measurements, filter, refocus), press Run, and see the metadata table it returns. Typed
   class names that don't match confidently list the closest nodes to pick from; see
   [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
-- **Python**: still a placeholder; it will show the query as a Python script.
+- **Python**: (right of Query builder): the query as a standalone Python script, updated as the steps change, with a Copy button.
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.
 - **Status** (button in the top-right corner): its dot sums up every check (green: all good, amber:
   something is still starting or rebuilding, red: something is down). Click it to drop down one row

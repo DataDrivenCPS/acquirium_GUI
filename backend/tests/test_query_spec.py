@@ -5,7 +5,6 @@ from acquirium.Client.explore import REGISTRY, Not
 from pydantic import ValidationError
 from src.query_builder import MAX_ROWS, Call, QuerySpec, ResolutionError, apply_calls, query_attributes, run_query, to_calls, to_python
 
-# query_builder is a stub: the step models (the request format) are real, the behavior is not implemented yet.
 
 def spec(*steps):
     return QuerySpec.model_validate({"steps": list(steps)})
@@ -436,18 +435,53 @@ def test_query_attributes_lists_the_registry():
     assert medium == {"name": "medium", "roles": sorted(REGISTRY["medium"].roles), "doc": REGISTRY["medium"].doc}
     assert all(set(a) == {"name", "roles", "doc"} and isinstance(a["roles"], list) for a in attributes)
 
-# ---------- stub behavior ----------
+# ---------- to_python ----------
 
-MEASUREMENT = {"steps": [{"kind": "measurement"}]}
+ADDRESS = "http://127.0.0.1:9999"
 
-# Asserts that every behavior is an explicit stub that says so, rather than silently returning nothing
+# Asserts that the script connects to the given address and chains one line per step, in order
 @pytest.mark.fast
-@pytest.mark.parametrize("call", [
-    lambda: to_python(QuerySpec.model_validate(MEASUREMENT), "http://127.0.0.1:9999"),
-], ids=["to_python"])
-def test_behavior_is_not_implemented(call):
-    with pytest.raises(NotImplementedError, match="not implemented yet"):
-        call()
+def test_to_python_writes_the_script():
+    script = to_python(spec({"kind": "entity", "cls": "Pump", "alias": "p"},
+                            {"kind": "measurement", "frm": "p"}), ADDRESS)
+    assert script == (
+        "import acquirium\n"
+        "\n"
+        "acq = acquirium.init(address='http://127.0.0.1:9999')\n"
+        "\n"
+        "table = (\n"
+        "    acq.query()\n"
+        "    .entity('Pump', alias='p')\n"
+        "    .measurement(frm='p')\n"
+        "    .metadata()\n"
+        ")\n"
+        "print(table)\n"
+    )
+
+
+# Asserts that Not is imported only when a filter excludes a value
+@pytest.mark.fast
+def test_to_python_imports_not_only_when_needed():
+    excluded = to_python(spec({"kind": "measurement", "filters": [{"attr": "medium", "value": "brine", "exclude": True}]}), ADDRESS)
+    included = to_python(spec({"kind": "measurement", "filters": [{"attr": "medium", "value": "brine"}]}), ADDRESS)
+    assert "from acquirium.Client.explore import Not" in excluded # the Not import line is in `excluded`
+    assert "medium=Not(value='brine')" in excluded   # the filter is written as Not(value='brine') in `excluded`
+    assert "Not" not in included   # "Not" does not appear anywhere in `included`
+
+
+# Asserts that the script is valid Python without running it , even for text with quotes in it. If not, raises a SyntaxError and fails
+@pytest.mark.fast
+def test_to_python_is_valid_python():
+    script = to_python(spec({"kind": "entity", "cls": "Pump's \"tank\""}), ADDRESS)
+    compile(script, "<query>", "exec")
+
+
+# Asserts that there is nothing to write without a step
+@pytest.mark.fast
+def test_to_python_needs_a_step():
+    with pytest.raises(ValueError, match="Add at least one step to see the query as Python"): # This match must match the text displayed on the panel, if it changes also change here
+        to_python(spec(), ADDRESS)
+
 
 # Asserts that the rest of the public interface stays importable and shaped as documented
 @pytest.mark.fast
