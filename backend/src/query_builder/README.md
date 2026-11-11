@@ -11,6 +11,37 @@ did not match a node.
   calls are chained onto `acq.query()`. Unset options are left out so Acquirium's defaults apply.
 - **`run_query(acq, spec)`**: runs `.metadata()` and returns `{"columns", "rows" (first MAX_ROWS),
   "total_rows", "truncated"}`. An empty spec raises `ValueError`.
+- **Result options** (`shaping.py`): `QuerySpec.options` (`ResultOptions`) picks the table a run returns. The default
+  is the metadata table, which is never shaped. `view: "readings"` pulls the values of the matched streams instead (`readings.py`)
+  and shapes them by these options (a limit or group-by with the metadata view is rejected):
+
+  | Option | Readings view |
+  | --- | --- |
+  | `limit` | readings per stream (100 when unset, at most 100,000) |
+  | `order` | `desc` (default) is newest first, so a limit keeps the newest readings |
+  | `shape` | `wide` (a column per entity and stream) or `narrow` (a row per reading) |
+  | `group_by` | `data_alias` or `point_id`; one row per entity and stream, aggregating `value_numeric` |
+  | `aggregate` | `count`, `mean`, `min`, `max`, `sum`, `first`, `last` (`first`/`last` follow time) |
+
+  Grouping and the wide layout are polars calls after the pull (Acquirium only limits and orders); the pull is
+  always narrow, and a grouped run ignores `shape`.
+
+  **Which entity a reading belongs to.** Acquirium's readings name a stream (`data_alias`, `point_id`) but not
+  the entity it hangs off. The metadata table does: each row pairs the entities of a match with the measurement
+  point. `pull_readings` finds the measurement columns of that table (the ones whose values are the readings'
+  points), takes every other node column as an entity step, and joins on the point. The readings get one column
+  per entity step, named by the step's alias, holding the entity's label (the metadata table's `<alias>.label`,
+  else its identifier). A stream under several entities gets a row for each. Wide columns are named
+  `<entity> | <stream>` and sorted by entity, then stream, so an entity's columns sit together (with the point id added only if two streams would otherwise share a name), and grouping
+  adds the entity columns to the group keys. A query with no entity step
+  (only measurements) has no entity columns. The stream itself is named by its own label
+  (the metadata table's `<alias>.label` of the measurement node, e.g. `intake in flow rate`), because Acquirium's
+  `data_alias` is only the node's alias (`Pump_data`); a stream with no label keeps that alias.
+
+  Readings need a measurement step. Every cell of the answer is text (or null), as before.
+  An empty readings pull is never replaced by the metadata sample rows. Checked on the WaterTAP seawater-ro
+  data: grouping by stream and taking the mean gives real numbers, so `value_numeric` is filled for the default
+  `cast_value`.
 - **`query_attributes()`**: the attributes steps can filter on, from Acquirium's `REGISTRY`.
 - **Text matching** (`resolve.py`; applies to class text and to filter values Acquirium matches by meaning, not to verbatim attributes like a label): `resolve_text(acq, text, kind)` returns the one node a text
   names, or raises `ResolutionError` carrying the closest candidates (and the text that failed).

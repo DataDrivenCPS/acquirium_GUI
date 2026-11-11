@@ -36,3 +36,41 @@ export function displayTable({ columns, rows }: Pick<QueryResult, 'columns' | 'r
     ),
   }
 }
+
+// Capitalizes the first letter of each word, leaving the other letters alone so acronyms stay ('RO feed' -> 'RO Feed')
+const titleCase = (text: string) => text.replace(/(^|[\s(])([a-z])/g, (_, before: string, letter: string) => before + letter.toUpperCase())
+
+// A stream's column name reads 's223:Pump_data__intake in flow rate': the node it hangs off ('s223:Pump_data'),
+// two underscores, then the stream's own label. The part before the underscores is plumbing, and a label that
+// says where and what ('intake in flow rate') reads better as 'Intake In (Flow Rate)'. The 'in' or 'out' stays,
+// since a stream going in and one coming out of the same thing would otherwise read the same. Anything that
+// does not look like that is only capitalized.
+// In a wide readings table the name starts with the entity the stream belongs to ('Pump 1 | intake in flow
+// rate'). The entity is a name the user knows, so it is kept exactly as it is and only the stream is shortened.
+export const ENTITY_SEPARATOR = ' | '
+export function readableStream(name: string): string {
+  const bar = name.indexOf(ENTITY_SEPARATOR)
+  if (bar >= 0) return `${name.slice(0, bar)}${ENTITY_SEPARATOR}${readableStream(name.slice(bar + ENTITY_SEPARATOR.length))}`
+  const own = name.includes('__') ? name.slice(name.indexOf('__') + 2) : name
+  const match = /^(.+?) (in|out) (.+)$/.exec(own)
+  return titleCase(match ? `${match[1]} ${match[2]} (${match[3]})` : own)
+}
+
+// The columns of the narrow and grouped readings tables, in plain words
+const FIXED_HEADERS: Record<string, string> = {
+  time: 'Time',
+  data_alias: 'Stream',
+  point_id: 'Stream Identifier',
+  value_numeric: 'Value',
+  value_text: 'Text Value',
+  count: 'Count',
+}
+
+// Readable headers for a readings table: the fixed columns get plain words ('time' -> 'Time'), a summary column
+// 'mean(value)' becomes 'Mean Value', and each stream column is shortened (see readableStream). If two streams
+// still shorten to the same text (the same label under two different nodes), those keep their whole names.
+export function readableHeaders(columns: string[]): string[] {
+  const summary = (column: string) => /^(\w+)\(value\)$/.exec(column)
+  const short = columns.map((column) => FIXED_HEADERS[column] ?? (summary(column) ? titleCase(`${summary(column)![1]} value`) : readableStream(column)))
+  return columns.map((column, index) => (short.filter((other) => other === short[index]).length > 1 ? column : short[index]))
+}

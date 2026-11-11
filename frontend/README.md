@@ -72,3 +72,70 @@ per source file or component, in the same folders as `src/`.
 Test packages are pinned to versions that still run on Node 20.19 (Vitest 4, jsdom 28,
 jest-dom 6). Install packages with npm 11 (`npx npm@11 install ...`): npm 10 removes the `libc`
 fields from `package-lock.json`.
+
+### Result options tests
+
+How the readings view and its aggregation panel are covered (see the root README, "Aggregating readings").
+
+`tests/components/query/exportTable.test.ts` (the text of each export format, no browser needed):
+
+| Test | What it checks |
+| --- | --- |
+| `toCsv`: writes the headers and one line per row, with a missing value left empty | Header line, one line per row, `CRLF` line ends, empty field for `null`. |
+| `toCsv`: quotes a field with a comma, a quote or a line break, and doubles the quotes inside | `a, b`, `say "hi"` and a two-line cell come out as valid CSV. |
+| `toJson`: writes one object per row, keyed by header, with null for a missing value | The JSON parses to a list of objects with the page's column names. |
+| `toJson`: numbers repeated headers so no column overwrites another | Three `Flow` columns become `Flow`, `Flow (2)` and `Flow (3)`. |
+| `toText`: writes tab-separated lines, a missing value left empty | Header line and rows joined by tabs. |
+| `toText`: turns a tab or line break inside a cell into a space so the columns stay aligned | A cell with a tab and a newline stays on one line. |
+| `toFormat` and `exportFileName`: picks the writer for the format | Each format name gets its own writer. |
+| `toFormat` and `exportFileName`: names the file after what was exported, the day and the format | `query-readings-2026-11-08.csv`, with the month and day zero-padded. |
+
+`tests/components/query/ExportButtons.test.tsx` (the buttons, with the browser's download caught so the saved file can be read):
+
+| Test | What it checks |
+| --- | --- |
+| is disabled before a run and when nothing matched, and says why | The three buttons are disabled with an explanation until there are rows. |
+| saves the table as a CSV, JSON or text file named after the view and the day | Each button saves a file with the right name, type and content. |
+| says that only the rows shown are exported when the result was cut off | The note appears only for a truncated result. |
+| exports the metadata with the names it shows, not the identifiers | The metadata file has `Feed flow`, not `wbs:flow-1`. |
+| exports the readings with the same entity and stream names as the table header | The readings file has `Pump 1 \| Intake In (Flow Rate)`, as the page does. |
+
+`tests/components/query/ResultOptions.test.tsx` renders the query windows against a fake backend:
+
+| Test | What it checks |
+| --- | --- |
+| starts with the metadata and no aggregation panel | A fresh page shows no Data aggregation panel and no Back to metadata button. |
+| disables View readings until the query has a measurements step, and says why | The button is disabled with an explanation, then enabled once a measurements step exists. |
+| sends only the steps for a plain run | A normal Run sends no options, so it is the request it always was. |
+| runs the same steps for readings, shows them as returned and opens the aggregation panel below them | View readings re-sends the same steps with the readings options; times are not shortened like identifiers. |
+| shows a stream as where and what, keeping the full name on hover | A long stream name is shortened in the header and the original is the hover text. |
+| puts the entity of each stream on top of its column, one heading over the streams that share it | Wide columns named `Pump 1 \| ...` get a `Pump 1` heading spanning both of its streams, with the stream names under it and Time across both header rows. |
+| applies a limit, an order and a layout from the panel | Apply sends the readings per stream, order and layout chosen. |
+| groups readings by stream with every aggregate, and fixes the layout while grouped | Summarize with offers all seven aggregates, Layout is disabled, and Apply sends the group-by and aggregate. |
+| goes back to the metadata, and the panel goes away | Back to metadata re-runs without options and hides the panel. |
+| drops the stale readings when a step is edited, back to an empty metadata view | Editing a step clears the readings so they are not read as the new query's. |
+| shows a rejected option as the builder error, like any rejected query | A 422 for a bad option appears as a readable message in the builder. |
+
+`tests/components/query/options.test.ts` (the request the options become):
+
+| Test | What it checks |
+| --- | --- |
+| sends nothing for the metadata table | The default options produce no `options` field. |
+| sends the newest readings in the wide layout for View readings | View readings sends readings, newest first, wide, with no limit so the backend default applies. |
+| sends the limit, order and layout that were chosen | Chosen values are sent as they are. |
+| sends a group-by as a list with its aggregate | The single group-by column becomes a list, with its aggregate. |
+
+`tests/components/query/display.test.ts` (readable names, added to the existing file):
+
+| Test | What it checks |
+| --- | --- |
+| `readableStream`: shortens (three examples) | `...__intake in flow rate` becomes `Intake In (Flow Rate)`, keeping in and out. |
+| `readableStream`: drops the node part ... keeps acronyms | A label with no where and what keeps only its own words, and `PXR` and `RO` stay as written. |
+| `readableStream`: still shortens a label that has no node part | A label without the double underscore is still reshaped. |
+| `readableStream`: keeps the entity in front of the stream exactly as it is named | `Pump 1 \| ...__intake in flow rate` becomes `Pump 1 \| Intake In (Flow Rate)`; the entity is never shortened or recapitalized. |
+| `readableHeaders`: names the fixed columns in plain words | `time`, `data_alias`, `point_id`, `value_numeric` and `value_text` get plain names. |
+| `readableHeaders`: names a summary column after its aggregate | `mean(value)` becomes `Mean Value`, and `count` becomes `Count`. |
+| `readableHeaders`: shortens the stream columns | Stream columns are shortened while Time stays. |
+| `readableHeaders`: tells a stream going in from one coming out of the same thing | `brine in` and `brine out` stay different headers. |
+| `readableHeaders`: tells the same stream of two entities apart and names the entity column | Two pumps' identical streams stay two headers, and an entity column (`Pump`) keeps its name. |
+| `readableHeaders`: falls back to the whole names when two streams still shorten to the same text | Identical shortened headers keep their full names. |

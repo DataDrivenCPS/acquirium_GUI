@@ -61,6 +61,22 @@ describe('DataTable', () => {
     expect(screen.getByRole('cell', { name: '2' })).toHaveClass('numeric')
   })
 
+  it('puts a heading over the columns that share a group, and a column with none across both header rows', () => {
+    const cell = (row: { name: string; n: number }) => row.name
+    const grouped = [
+      { header: 'Time', cell },
+      { header: 'Flow', group: 'Pump 1', cell },
+      { header: 'TDS', group: 'Pump 1', cell },
+      { header: 'Flow', group: 'Pump 2', cell },
+    ]
+    render(<DataTable columns={grouped} rows={[{ name: 'a', n: 1 }]} rowKey={(r) => r.name} empty="none" />)
+    expect(screen.getByRole('columnheader', { name: 'Pump 1' })).toHaveAttribute('colspan', '2')
+    expect(screen.getByRole('columnheader', { name: 'Pump 2' })).toHaveAttribute('colspan', '1')
+    expect(screen.getByRole('columnheader', { name: 'Time' })).toHaveAttribute('rowspan', '2')
+    expect(screen.getAllByRole('columnheader', { name: 'Flow' })).toHaveLength(2) // the same header under two groups is fine
+    expect(screen.getAllByRole('row')).toHaveLength(3) // group row, column row, one data row
+  })
+
   it('shows the empty message instead of an empty table', () => {
     render(<DataTable columns={columns} rows={[]} rowKey={(r) => r.name} empty="Nothing here." />)
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
