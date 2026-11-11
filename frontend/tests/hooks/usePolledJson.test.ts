@@ -20,13 +20,38 @@ describe('usePolledJson', () => {
     expect(result.current).toEqual({ state: 'ok', data: { n: 1 } })
   })
 
-  it('reports unreachable when the request fails or returns an error status', async () => {
+  it('reports starting while checks fail before any has succeeded, however often they fail', async () => {
     mockFetch({ 'GET /api/err': { status: 500, body: {} } })
     const failing = renderHook(() => usePolledJson('/api/down')) // no route: network failure
     const erroring = renderHook(() => usePolledJson('/api/err'))
     await advance(0)
-    expect(failing.result.current).toEqual({ state: 'unreachable' })
-    expect(erroring.result.current).toEqual({ state: 'unreachable' })
+    expect(failing.result.current).toEqual({ state: 'starting' })
+    expect(erroring.result.current).toEqual({ state: 'starting' })
+    await advance(3000)
+    expect(failing.result.current).toEqual({ state: 'starting' })
+  })
+
+  it('reports the data once a starting backend comes up', async () => {
+    let up = false
+    mockFetch({ 'GET /api/x': () => (up ? { body: { n: 1 } } : { status: 500, body: {} }) })
+    const { result } = renderHook(() => usePolledJson<{ n: number }>('/api/x'))
+    await advance(0)
+    expect(result.current).toEqual({ state: 'starting' })
+    up = true
+    await advance(3000)
+    expect(result.current).toEqual({ state: 'ok', data: { n: 1 } })
+  })
+
+  it('reports unreachable when a check fails after an earlier one succeeded, and keeps saying so', async () => {
+    let up = true
+    mockFetch({ 'GET /api/x': () => (up ? { body: {} } : { status: 500, body: {} }) })
+    const { result } = renderHook(() => usePolledJson('/api/x'))
+    await advance(0)
+    up = false
+    await advance(3000)
+    expect(result.current).toEqual({ state: 'unreachable' })
+    await advance(3000)
+    expect(result.current).toEqual({ state: 'unreachable' }) // not back to starting: it was up before
   })
 
   it('polls again every 3 seconds and picks up changes', async () => {

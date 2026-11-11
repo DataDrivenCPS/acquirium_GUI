@@ -1,17 +1,16 @@
-/* Main content on the left, status panel on the right; stacked on narrow screens */
-.app-layout {
+/* The page header: the title on the left, the status button pushed to the right end */
+.app-header {
   display: flex;
-  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+}
 
-  & > main {
-    flex: 1;
-    min-width: 0; /* lets the grid shrink below its content's width; wide tables scroll instead */
-    padding: 0 16px 16px;
-  }
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-  }
+/* The operator windows, under the header, using the full width of the page */
+.app-main {
+  min-width: 0; /* lets the grid shrink below its content's width; wide tables scroll instead */
+  padding: 0 16px 16px;
 }
 
 /* The operator windows: live streams and their graph on top, the query tools below, drivers at the bottom */

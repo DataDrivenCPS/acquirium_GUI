@@ -85,9 +85,11 @@ describe('DataTable', () => {
 })
 
 describe('PolledBody', () => {
-  it('shows a loading line, an unreachable line, or the rendered data', () => {
+  it('shows a loading line, a starting line, an unreachable line, or the rendered data', () => {
     const { rerender } = render(<PolledBody result={{ state: 'checking' }}>{() => 'data'}</PolledBody>)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
+    rerender(<PolledBody result={{ state: 'starting' }}>{() => 'data'}</PolledBody>)
+    expect(screen.getByText('Waiting for the backend to start…')).toBeInTheDocument()
     rerender(<PolledBody result={{ state: 'unreachable' }}>{() => 'data'}</PolledBody>)
     expect(screen.getByText(/Backend unreachable/)).toBeInTheDocument()
     rerender(<PolledBody result={{ state: 'ok', data: 7 }}>{(n) => `got ${n}`}</PolledBody>)

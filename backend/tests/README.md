@@ -56,7 +56,7 @@ Make sure your test file names are prefixed with 'test_' so pytest can discover 
 - `config_stubs.py`: TOML strings for config tests, written to `tmp_path`. Never use real config files.
 - `fakes.py`: stand-in Acquirium payloads (`DRIVER`, `STREAM_KEYS`).
 - The `/query/*` route tests swap the `query_builder` functions for fakes, so they check only what the
-  routes do; one test checks that `to_python` (still a stub) makes `/query/python` answer 501. The
+  routes do; two tests check `/query/python` with the real `to_python`. The
   query builder's own behavior is tested in `test_query_spec.py` and `test_resolve.py` (fast, with
   fakes) and in `TestWatertapServer` (slow, real matching and queries on the WaterTAP data).
 - Route tests replace `server.acq` with a `SimpleNamespace` fake and use a `TestClient` without

@@ -1,5 +1,5 @@
-import type { QueryResult, ResultOptions } from '../../api/types'
-import { NONE } from '../../format'
+import type { QueryResult } from '../../api/types'
+import { localName, NONE, unitName } from '../../format'
 import DataTable, { type Column } from '../layout/DataTable'
 import { displayTable, ENTITY_SEPARATOR, readableHeaders, readableStream } from './display'
 import ExportButtons from './ExportButtons'
@@ -42,6 +42,9 @@ function shownTable(result: QueryResult, ran: ResultOptions): ShownTable {
     rows: shown.rows.map((row) => row.map((cell, index) => (readings && shown.columns[index] === 'data_alias' && cell ? readableStream(cell) : cell))),
   }
 }
+// Attribute columns whose values are namespaced terms: shown without the namespace, which stays as alt text
+const termName = (header: string) =>
+  header.endsWith('.unit') ? unitName : header.endsWith('.quantity_kind') ? localName : null
 
 function ResultsTable({ result, table, ran }: { result: QueryResult | null; table: ShownTable | null; ran: ResultOptions }) {
   if (result === null || table === null) return <p className="muted">Run a query to see its results.</p>

@@ -1,7 +1,6 @@
 # Acquirium GUI
 
-A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium): live streams and the drivers feeding them, with places reserved for a graph and a query
-builder that are not implemented yet.
+A web interface for [Acquirium](https://github.com/DataDrivenCPS/acquirium): live streams and the drivers feeding them, a query builder with its results and the query as Python, and a place reserved for a graph that is not implemented yet.
 
 ## Repository layout
 
@@ -40,7 +39,9 @@ npm run dev
 
 Open <http://localhost:5173>. This starts the backend on port 8000 and the page on port 5173; the
 page's `/api/*` requests are proxied to the backend. The backend starts Acquirium before it accepts
-requests (about 20 s the first time, a few seconds after that).
+requests (about 20 s the first time, a few seconds after that). You can open the page right away:
+until the backend answers, the windows say they're waiting for it to start and the Status dot is
+amber. Once it has answered, a backend that stops answering shows as unreachable (red).
 
 Press **Ctrl+C once** to stop both. In PowerShell the prompt can come back a moment before the last
 shutdown lines print; the servers are already stopping, so there's no need to press Ctrl+C again.
@@ -60,11 +61,13 @@ again to expand it.
   streams' values with a data aggregation panel below them: readings per stream, order, layout, and group by
   stream with count, mean, min, max, sum, first or last. Apply re-runs with them. See
   [backend/src/query_builder/README.md](backend/src/query_builder/README.md).
-- **Python**: still a placeholder; it will show the query as a Python script.
+- **Python**: (right of Query builder): the query as a standalone Python script, updated as the steps change, with a Copy button.
 - **Drivers** (bottom): the drivers feeding data into Acquirium, with their status and poll interval.
-- **Status** (right): each part of the system, re-checked every 3 seconds: the frontend, the
-  backend, the Acquirium server, its embedding indexes and graph, the config in use, and Acquirium's
-  address. Click its title to collapse it to a narrow strip.
+- **Status** (button in the top-right corner): its dot sums up every check (green: all good, amber:
+  something is still starting or rebuilding, red: something is down). Click it to drop down one row
+  per part of the system, each re-checked every 3 seconds: the frontend, the backend, the Acquirium
+  server, its embedding indexes and graph, the config in use, and Acquirium's address. Escape or a
+  click elsewhere closes the list.
 
 While Acquirium has no streams or drivers, the Streams and Drivers windows show made-up sample rows,
 marked **Sample data**. As soon as Acquirium has live data, it replaces the samples on the next
@@ -134,7 +137,7 @@ The **Export** buttons above the Query results table save what the table shows a
 By default the backend uses `backend/acquirium.toml` if it exists, otherwise Acquirium's built-in
 local defaults, with data stored in `backend/.acquirium/`. To use another config, set
 `ACQUIRIUM_GUI_CONFIG` to its path (absolute, or relative to `backend/`) before `npm run dev`. The
-status panel's Config row shows which one was loaded.
+Status list's Config row shows which one was loaded.
 
 ```bash
 ACQUIRIUM_GUI_CONFIG=/path/to/acquirium.toml npm run dev

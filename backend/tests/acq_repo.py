@@ -1,6 +1,6 @@
 import os
 import socket
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from config_stubs import WATERTAP_PARQUET
 
@@ -36,10 +36,11 @@ def watertap_skip_reason(repo: Path) -> str | None:
     return None
 
 
-# Writes acquirium.toml into directory from the WaterTAP template and returns its path
-def write_watertap_config(directory: Path, port: int, repo: Path) -> Path:
+# Writes acquirium.toml into directory from the WaterTAP template and returns its path.
+# The checkout path is written with forward slashes: a Windows backslash would be an escape in a TOML string.
+def write_watertap_config(directory: Path, port: int, repo: PurePath) -> Path:
     config_path = directory / "acquirium.toml"
-    config_path.write_text(WATERTAP_PARQUET.format(port=port, acq_repo=repo))
+    config_path.write_text(WATERTAP_PARQUET.format(port=port, acq_repo=repo.as_posix()))
     return config_path
 
 

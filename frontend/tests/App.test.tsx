@@ -5,7 +5,7 @@ import { mockFetch } from './support/mockFetch'
 
 describe('App', () => {
   it('lists the windows in screen order: streams and graph, the query tools, then drivers', () => {
-    mockFetch({}) // no backend: the windows just say it's unreachable
+    mockFetch({}) // no backend: the windows just say they're waiting for it to start
     render(<App />)
     // the page's order also decides the Tab key order, so it must match where App.css places the windows
     expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([

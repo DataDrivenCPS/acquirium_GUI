@@ -9,6 +9,7 @@ type PolledBodyProps<T> = {
 // The body of a window fed by usePolledJson: a waiting or error line until data arrives
 function PolledBody<T>({ result, children }: PolledBodyProps<T>) {
   if (result.state === 'checking') return <p className="muted">Loading…</p>
+  if (result.state === 'starting') return <p className="muted">Waiting for the backend to start…</p>
   if (result.state === 'unreachable') {
     return <p className="text-error">Backend unreachable. Retrying every few seconds.</p>
   }

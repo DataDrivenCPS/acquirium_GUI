@@ -30,23 +30,21 @@ the `vite` command is a batch file, and Ctrl+C makes `cmd.exe` stop to ask "Term
 
 ```
 src/
-  App.tsx, App.css        the operator grid (left) + status panel (right). Grid rows (App.css):
+  App.tsx, App.css        header (title + status button, top right) over the operator grid. Grid rows (App.css):
                           streams | graph, builder | python, results, drivers
   api/types.ts            shapes of the backend's JSON; keep in sync with backend/src/server.py
   api/http.ts             postJson(): POST helper with readable errors (ApiError)
   format.ts               formatValue, formatTime
-  hooks/                  usePolledJson (GET every 3 s), useDebouncedPost (POST once edits pause)
-  components/layout/      Window (titled, collapsible panel; flags sample data), DataTable
-                          (optional group heading over columns), PolledBody, CollapseToggle
+  hooks/                  usePolledJson (GET every 3 s; failures before its first success are 'starting',
+                          later ones 'unreachable'), useDebouncedPost (POST once edits pause)
+  components/layout/      Window (titled, collapsible panel; flags sample data), DataTable,
+                          PolledBody, CollapseToggle
   components/streams/     Streams window and its filter
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
-  components/query/       QueryWorkspace owns the steps and result options -> builder (StepEditor, steps.ts) and results windows
-                          (ResultOptionsPanel, options.ts: view, limit, order, layout, group-by);
-                          the Python window is still a stub that says "Not implemented yet"
+  components/query/       QueryWorkspace owns the steps -> builder (StepEditor, steps.ts) and results windows;
+                          and the Python window (the steps as a Python script, with a Copy button)
   components/status/      status panel (collapsible)
-tests/                    mirrors src/; support/ has the test setup, mockFetch and fixtures
-```
 
 ## Conventions
 
