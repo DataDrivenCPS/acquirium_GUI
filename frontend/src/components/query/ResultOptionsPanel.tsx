@@ -9,9 +9,10 @@ type ResultOptionsPanelProps = {
 }
 
 // The data aggregation panel below the readings: how many readings, in what order and layout, and whether to
-// summarize them per stream. Changing a choice sends nothing; Apply runs the query again with them.
+// summarize them per stream (grouping and summarizing need the narrow layout). Changing a choice sends nothing; Apply runs the query again with them.
 function ResultOptionsPanel({ options, onChange, onApply, canApply }: ResultOptionsPanelProps) {
   const grouped = options.group_by !== ''
+  const narrow = grouped || options.shape === 'narrow' // grouping is only offered once the narrow layout is chosen
   const set = (change: Partial<ResultOptions>) => onChange({ ...options, ...change })
 
   return (
@@ -55,7 +56,12 @@ function ResultOptionsPanel({ options, onChange, onApply, canApply }: ResultOpti
       </label>
       <label>
         Group by
-        <select value={options.group_by} onChange={(event) => set({ group_by: event.target.value, aggregate: 'count' })}>
+        <select
+          value={options.group_by}
+          disabled={!narrow}
+          title={narrow ? undefined : 'Choose the Narrow layout to group readings'}
+          onChange={(event) => set({ group_by: event.target.value, aggregate: 'count' })}
+        >
           <option value="">No grouping</option>
           {READINGS_GROUPS.map(({ value, label }) => (
             <option key={value} value={value}>

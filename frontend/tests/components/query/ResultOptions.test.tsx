@@ -132,6 +132,9 @@ describe('readings view', () => {
     await within(results()).findByRole('cell', { name: '2026-01-01 00:00:00' })
 
     expect(within(panel()).queryByLabelText('Summarize with')).not.toBeInTheDocument()
+    expect(field('Group by')).toBeDisabled() // the layout is still wide
+    await userEvent.selectOptions(field('Layout'), 'narrow')
+    expect(field('Group by')).toBeEnabled()
     await userEvent.selectOptions(field('Group by'), 'data_alias')
     expect(within(field('Summarize with')).getAllByRole('option').map((o) => o.textContent)).toEqual([
       'count', 'mean', 'min', 'max', 'sum', 'first', 'last',

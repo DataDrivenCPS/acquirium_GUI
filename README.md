@@ -90,7 +90,7 @@ values, use the readings view.
    | Readings per stream | How many readings to pull for each stream. Blank means 100; the most allowed is 100,000. |
    | Order | *Newest first* (default) keeps the newest readings when there is a limit; *Oldest first* keeps the oldest. |
    | Layout | *Wide* is one column per stream. *Narrow* is one row per reading (Stream, Stream Identifier, Time, Value). |
-   | Group by | *No grouping*, or *Stream* / *Stream Identifier* to get one row per entity and stream. |
+   | Group by | Available once Layout is *Narrow*. *No grouping*, or *Stream* / *Stream Identifier* to get one row per entity and stream. |
    | Summarize with | Appears once you group: count, mean, min, max, sum, first or last of each stream's values. |
 
 5. **Press Back to metadata** to return to the matched streams.
@@ -118,8 +118,9 @@ The **Export** buttons above the Query results table save what the table shows a
 | JSON | `query-readings-2026-11-08.json` | Programs: a list with one object per row, keyed by column name |
 | TXT | `query-readings-2026-11-08.txt` | A quick look or pasting: tab-separated, one line per row |
 
-- The file is named after the table (`metadata` or `readings`) and the day, and your browser saves it where it
-  saves downloads.
+- Type a name in the **Enter a file name** box before exporting to choose it; the format's extension (`.csv`, `.json`,
+  `.txt`) is added for you, and characters a file name cannot hold are dropped. Left blank, the file is named after
+  the table (`metadata` or `readings`) and the day. Your browser saves it where it saves downloads.
 - The file has the same column names and values as the page, so a wide readings column is `Pump 1 | Intake In (Flow Rate)`
   (entity, then stream) in one header. An empty value is an empty field in CSV and TXT and `null` in JSON.
   JSON values are text, as on the page.
