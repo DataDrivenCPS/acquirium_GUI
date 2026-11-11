@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { exportFileName, toCsv, toFormat, toJson, toText, uniqueNames } from '../../../src/components/query/exportTable'
+import { defaultFileName, exportFileName, toCsv, toFormat, toJson, toText, uniqueNames } from '../../../src/components/query/exportTable'
 
 const table = { headers: ['Time', 'Pump 1 | Intake In (Flow Rate)'], rows: [['2026-01-01 00:00:00', '1.5'], ['2026-01-01 01:00:00', null]] }
 
@@ -48,7 +48,18 @@ describe('toFormat and exportFileName', () => {
 
   it('names the file after what was exported, the day and the format', () => {
     const day = new Date(2026, 10, 8, 12, 30)
-    expect(exportFileName('readings', 'csv', day)).toBe('query-readings-2026-11-08.csv')
-    expect(exportFileName('metadata', 'json', new Date(2026, 0, 5))).toBe('query-metadata-2026-01-05.json')
+    expect(exportFileName('readings', 'csv', '', day)).toBe('query-readings-2026-11-08.csv')
+    expect(exportFileName('metadata', 'json', '', new Date(2026, 0, 5))).toBe('query-metadata-2026-01-05.json')
+    expect(defaultFileName('readings', day)).toBe('query-readings-2026-11-08')
+  })
+
+  it('uses the name the user typed, adds the extension once and drops characters a file name cannot hold', () => {
+    const day = new Date(2026, 10, 8)
+    expect(exportFileName('readings', 'csv', 'plant A run 3', day)).toBe('plant A run 3.csv')
+    expect(exportFileName('readings', 'csv', 'plant.csv', day)).toBe('plant.csv')
+    expect(exportFileName('readings', 'json', 'plant.csv', day)).toBe('plant.json')
+    expect(exportFileName('readings', 'txt', 'a/b:c*?"<>|', day)).toBe('abc.txt')
+    expect(exportFileName('readings', 'csv', '   ', day)).toBe('query-readings-2026-11-08.csv')
+    expect(exportFileName('readings', 'csv', '.csv', day)).toBe('query-readings-2026-11-08.csv')
   })
 })

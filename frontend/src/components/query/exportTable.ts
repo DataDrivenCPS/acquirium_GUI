@@ -45,10 +45,21 @@ export function toFormat(table: ExportTable, format: ExportFormat): string {
   return { csv: toCsv, json: toJson, txt: toText }[format](table)
 }
 
-// 'query-readings-2026-11-08.csv': what was exported, the day (this computer's), and the format
-export function exportFileName(view: 'metadata' | 'readings', format: ExportFormat, now = new Date()): string {
+// 'query-readings-2026-11-08': the name offered when the user has not typed one (what was exported and the day, this computer's)
+export function defaultFileName(view: 'metadata' | 'readings', now = new Date()): string {
   const two = (n: number) => String(n).padStart(2, '0')
-  return `query-${view}-${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}.${format}`
+  return `query-${view}-${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`
+}
+
+// The file name to save: the user's own name with characters a file name cannot hold removed and the format's
+// extension added (once, even if they typed it); a blank name falls back to the default one
+export function exportFileName(view: 'metadata' | 'readings', format: ExportFormat, custom = '', now = new Date()): string {
+  const typed = custom
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '')
+    .trim()
+    .replace(/\.(csv|json|txt)$/i, '')
+    .trim()
+  return `${typed || defaultFileName(view, now)}.${format}`
 }
 
 // Saves text as a file through the browser. A CSV starts with a byte order mark so Excel reads accents correctly.

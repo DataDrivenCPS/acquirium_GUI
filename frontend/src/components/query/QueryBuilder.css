@@ -69,6 +69,11 @@
   gap: 6px;
 }
 
+.export-buttons input {
+  width: 220px;
+  max-width: 100%;
+}
+
 /* the table scrolls inside its own box (both ways, with the header staying put), so a wide or long table never
    pushes the panel out of sight; 260px leaves room for the panel under it inside the results window's 420px */
 .readings-data {

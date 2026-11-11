@@ -50,6 +50,22 @@ describe('ExportButtons', () => {
     expect(await read(saved[2].blob)).toBe('Time\tFlow\n2026-01-01 00:00:00\t1.5\n')
   })
 
+  it('saves under the name the user typed, with the format added', async () => {
+    render(<ExportButtons table={TABLE} view="readings" truncated={false} />)
+    await userEvent.type(screen.getByRole('textbox', { name: 'File name' }), 'plant A validation')
+    await exportAs('CSV')
+    await exportAs('JSON')
+    expect(saved.map(({ name }) => name)).toEqual(['plant A validation.csv', 'plant A validation.json'])
+  })
+
+  it('asks for a file name and disables the name box with nothing to export', () => {
+    const { rerender } = render(<ExportButtons table={null} view="metadata" truncated={false} />)
+    expect(screen.getByRole('textbox', { name: 'File name' })).toBeDisabled()
+    rerender(<ExportButtons table={TABLE} view="metadata" truncated={false} />)
+    expect(screen.getByRole('textbox', { name: 'File name' })).toHaveAttribute('placeholder', 'Enter a file name')
+    expect(screen.getByRole('textbox', { name: 'File name' })).toHaveAttribute('title', expect.stringMatching(/query-metadata-\d{4}-\d{2}-\d{2}$/))
+  })
+
   it('says that only the rows shown are exported when the result was cut off', () => {
     const { rerender } = render(<ExportButtons table={TABLE} view="metadata" truncated={false} />)
     expect(screen.queryByText('Only the rows shown are exported.')).not.toBeInTheDocument()
