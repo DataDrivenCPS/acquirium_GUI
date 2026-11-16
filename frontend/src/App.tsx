@@ -23,7 +23,7 @@ function App() {
         <div className="operator-grid">
           <StreamsWindow selected={selectedStreams} onSelect={setSelectedStreams} />
           <GraphWindow />
-          <QueryWorkspace />
+          <QueryWorkspace streams={selectedStreams} />
           <DriversWindow />
         </div>
       </main>

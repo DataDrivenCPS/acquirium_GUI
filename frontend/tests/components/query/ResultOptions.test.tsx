@@ -43,14 +43,14 @@ const queryWithMeasurements = async () => {
 describe('readings view', () => {
   it('starts with the metadata and no aggregation panel', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     expect(within(results()).queryByRole('form', { name: 'Data aggregation' })).not.toBeInTheDocument()
     expect(within(results()).queryByRole('button', { name: 'Back to metadata' })).not.toBeInTheDocument()
   })
 
   it('disables View readings until the query has a measurements step, and says why', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(within(builder()).getByRole('button', { name: 'Add entity' }))
     expect(viewReadings()).toBeDisabled()
     expect(viewReadings()).toHaveAttribute('title', 'Add a measurements step to see readings')
@@ -60,14 +60,14 @@ describe('readings view', () => {
 
   it('sends only the steps for a plain run', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     expect(Object.keys(requestBodies(fetchMock, RUN)[0] as object)).toEqual(['steps'])
   })
 
   it('runs the same steps for readings, shows them as returned and opens the aggregation panel below them', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
 
@@ -83,7 +83,7 @@ describe('readings view', () => {
   it('shows a stream as where and what, keeping the full name on hover', async () => {
     const named: QueryResult = { ...READINGS, columns: ['time', 's223:Pump_data__intake in flow rate'] }
     mockFetch({ ...routes, [RUN]: (body) => ((body as { options?: unknown }).options ? { body: named } : { body: METADATA }) })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     const header = await within(results()).findByRole('columnheader', { name: 'Intake In (Flow Rate)' })
@@ -98,7 +98,7 @@ describe('readings view', () => {
       rows: [['2026-01-01 00:00:00', '1.5', '0.2', '2.5']],
     }
     mockFetch({ ...routes, [RUN]: (body) => ((body as { options?: unknown }).options ? { body: wide } : { body: METADATA }) })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     const pump1 = await within(results()).findByRole('columnheader', { name: 'Pump 1' })
@@ -111,7 +111,7 @@ describe('readings view', () => {
 
   it('applies a limit, an order and a layout from the panel', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     await within(results()).findByRole('cell', { name: '2026-01-01 00:00:00' })
@@ -126,7 +126,7 @@ describe('readings view', () => {
 
   it('groups readings by stream with every aggregate, and fixes the layout while grouped', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     await within(results()).findByRole('cell', { name: '2026-01-01 00:00:00' })
@@ -149,7 +149,7 @@ describe('readings view', () => {
 
   it('goes back to the metadata, and the panel goes away', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     await within(results()).findByRole('cell', { name: '2026-01-01 00:00:00' })
@@ -162,7 +162,7 @@ describe('readings view', () => {
 
   it('drops the stale readings when a step is edited, back to an empty metadata view', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     await within(results()).findByRole('cell', { name: '2026-01-01 00:00:00' })
@@ -181,7 +181,7 @@ describe('readings view', () => {
           ? { status: 422, body: { detail: [{ loc: ['body', 'options', 'limit'], msg: 'Input should be greater than or equal to 1' }] } }
           : { body: METADATA },
     })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await queryWithMeasurements()
     await userEvent.click(viewReadings())
     expect(await within(builder()).findByRole('alert')).toHaveTextContent('options limit: Input should be greater than or equal to 1')

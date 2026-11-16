@@ -29,7 +29,7 @@ const button = (name: string) => within(builder()).getByRole('button', { name })
 describe('QueryWorkspace', () => {
   it('keeps the three windows in place and the Python window asks for a step', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     for (const title of ['Query builder', 'Python', 'Query results']) {
       expect(screen.getByRole('region', { name: title })).toBeInTheDocument()
     }
@@ -39,7 +39,7 @@ describe('QueryWorkspace', () => {
 
   it('adds a step for each button, numbered in order, and removes one', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.click(button('Add related entity'))
     await userEvent.click(button('Use measurements'))
@@ -55,7 +55,7 @@ describe('QueryWorkspace', () => {
 
   it('never contacts the backend to run while the steps are only being edited (just the attribute list loads)', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'tank')
     await userEvent.click(button('Add related entity'))
@@ -65,7 +65,7 @@ describe('QueryWorkspace', () => {
 
   it('disables Run until there is a step', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     expect(button('Run')).toBeDisabled()
     await userEvent.click(button('Add entity'))
     expect(button('Run')).toBeEnabled()
@@ -73,7 +73,7 @@ describe('QueryWorkspace', () => {
 
   it('offers the attributes from the backend in a filter, and sends the filter with the step', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Use measurements'))
     await userEvent.click(within(step(1, 'measurement')).getByRole('button', { name: 'Add filter' }))
     const attr = within(step(1, 'measurement')).getByLabelText('Filter attribute')
@@ -90,7 +90,7 @@ describe('QueryWorkspace', () => {
 
   it('starts a filter step with a filter on the first attribute and removes a filter', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add filter step'))
     const where = step(1, 'where')
     await waitFor(() => expect(within(where).getByLabelText('Filter attribute')).toHaveValue('medium'))
@@ -100,7 +100,7 @@ describe('QueryWorkspace', () => {
 
   it('runs the steps and shows the returned table', async () => {
     const fetchMock = mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'tank')
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Alias'), 't')
@@ -128,7 +128,7 @@ describe('QueryWorkspace', () => {
 
   it('says when only the first rows of a longer table are shown', async () => {
     mockFetch({ ...routes, [RUN]: { body: { ...RESULT, total_rows: 5000, truncated: true } } })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Use measurements'))
     await userEvent.click(button('Run'))
     expect(await screen.findByText('Showing the first 2 of 5,000 rows')).toBeInTheDocument()
@@ -136,7 +136,7 @@ describe('QueryWorkspace', () => {
 
   it('flags a sample result', async () => {
     mockFetch({ ...routes, [RUN]: { body: { ...RESULT, source: 'sample' } } })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Use measurements'))
     await userEvent.click(button('Run'))
     const results = screen.getByRole('region', { name: 'Query results' })
@@ -145,7 +145,7 @@ describe('QueryWorkspace', () => {
 
   it('shows a rejected query as a message in the builder, keeping the steps', async () => {
     mockFetch({ ...routes, [RUN]: { status: 400, body: { detail: 'refocus: unknown alias', candidates: [], text: null } } })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Refocus'))
     await userEvent.type(within(step(1, 'refocus')).getByLabelText('Alias'), 'nope')
     await userEvent.click(button('Run'))
@@ -165,7 +165,7 @@ describe('QueryWorkspace', () => {
           : { body: RESULT }
       },
     })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
     await userEvent.click(button('Run'))
@@ -189,7 +189,7 @@ describe('QueryWorkspace', () => {
 
   it('says when the backend is unreachable, keeping the steps', async () => {
     mockFetch({ 'GET /api/query/attributes': { body: ATTRIBUTES } }) // no run route: the request fails like a network error
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.click(button('Run'))
     expect(await within(builder()).findByRole('alert')).toHaveTextContent('Backend unreachable')
@@ -198,7 +198,7 @@ describe('QueryWorkspace', () => {
 
   it('still builds steps when the attribute list cannot be loaded, and says so', async () => {
     mockFetch({ [RUN]: { body: RESULT } }) // no attributes route
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     expect(await within(builder()).findByText('Could not load the attribute list; filters are unavailable.')).toBeInTheDocument()
     await userEvent.click(button('Add entity'))
     expect(step(1, 'entity')).toBeInTheDocument()
@@ -206,7 +206,7 @@ describe('QueryWorkspace', () => {
 
   it('does not ask for an identifier: entity and related steps have no URI field', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.click(button('Add related entity'))
     expect(within(builder()).queryByLabelText('URI')).not.toBeInTheDocument()
@@ -218,7 +218,7 @@ describe('QueryWorkspace', () => {
       ...routes,
       [RUN]: () => (++call === 1 ? { status: 400, body: { detail: 'close', candidates: [PUMP], text: 'pmp' } } : { body: RESULT }),
     })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
     await userEvent.click(button('Run'))
@@ -232,7 +232,7 @@ describe('QueryWorkspace', () => {
 
   it('tells the user that Via takes plain words', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add related entity'))
     expect(within(step(1, 'related')).getByLabelText('Via')).toHaveAttribute('placeholder', 'e.g. feeds (blank: any)')
   })
@@ -243,7 +243,7 @@ describe('QueryWorkspace', () => {
   ])('clears the earlier results when a later run fails on %s, so they are not mistaken for the new query', async (_, failure) => {
     let call = 0
     mockFetch({ ...routes, [RUN]: () => (++call === 1 ? { body: RESULT } : failure) })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Use measurements'))
     await userEvent.click(button('Run'))
     await screen.findByRole('cell', { name: 'Feed flow' })
@@ -267,7 +267,7 @@ describe('QueryWorkspace', () => {
           : { status: 400, body: { detail: "close matches for 'tnk'", candidates: [TANK], text: 'tnk' } }
       },
     })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
     await userEvent.click(button('Add related entity'))
@@ -287,7 +287,7 @@ describe('QueryWorkspace', () => {
           ? { status: 400, body: { detail: "Several close matches for 'pump'", candidates: [PUMP, PIPE], text: 'pump', field: 'type' } }
           : { body: RESULT },
     })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Add entity'))
     await userEvent.click(within(step(1, 'entity')).getByRole('button', { name: 'Add filter' }))
     const filter = within(step(1, 'entity'))
@@ -312,7 +312,7 @@ describe('QueryWorkspace', () => {
           ? { status: 400, body: { detail: 'close', candidates: [PUMP], text: 'pump', field: 'medium' } }
           : { body: RESULT },
     })
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     await userEvent.click(button('Use measurements'))
     await userEvent.click(within(step(1, 'measurement')).getByRole('button', { name: 'Add filter' }))
     const filter = within(step(1, 'measurement'))

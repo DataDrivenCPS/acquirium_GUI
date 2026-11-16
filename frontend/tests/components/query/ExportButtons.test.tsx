@@ -90,7 +90,7 @@ describe('export from the query results window', () => {
 
   it('exports the metadata with the names it shows, not the identifiers', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     const builder = screen.getByRole('region', { name: 'Query builder' })
     await userEvent.click(within(builder).getByRole('button', { name: 'Use measurements' }))
     await userEvent.click(within(builder).getByRole('button', { name: 'Run' }))
@@ -102,7 +102,7 @@ describe('export from the query results window', () => {
 
   it('exports the readings with the same entity and stream names as the table header', async () => {
     mockFetch(routes)
-    render(<QueryWorkspace />)
+    render(<QueryWorkspace streams={[]} />)
     const builder = screen.getByRole('region', { name: 'Query builder' })
     await userEvent.click(within(builder).getByRole('button', { name: 'Use measurements' }))
     await userEvent.click(within(builder).getByRole('button', { name: 'Run' }))
