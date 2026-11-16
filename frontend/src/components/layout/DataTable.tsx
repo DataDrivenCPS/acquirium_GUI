@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 
 // How to show one column: its header, and what to put in its cell for a given row
 export type Column<Row> = {
@@ -14,6 +14,8 @@ type DataTableProps<Row> = {
   rows: Row[]
   rowKey: (row: Row, index: number) => string // React needs a stable, unique key per row
   empty: string // shown instead of the table when there are no rows
+  onRowClick?: (row: Row, event: MouseEvent | KeyboardEvent) => void // makes the rows clickable (and focusable, Enter or Space clicks); the event says whether Ctrl or Cmd was held
+  selected?: (row: Row) => boolean // rows to mark as selected (a bar on their left), once onRowClick is set
 }
 
 // Neighbouring columns with the same group, in order: [{ group: 'Pump 1', columns: [..] }, { columns: [..] }, ...]
@@ -30,8 +32,9 @@ function runsOf<Row>(columns: Column<Row>[]) {
 
 // A plain table. <Row> is the type of one row, so cell functions get properly typed rows. If any column has a
 // group, the header has a top row naming the groups, each spanning its columns, above the column headers; a
-// column without a group puts its header across both rows.
-function DataTable<Row>({ columns, rows, rowKey, empty }: DataTableProps<Row>) {
+// column without a group puts its header across both rows. With onRowClick the rows can be clicked or, from
+// the keyboard, focused and activated with Enter or Space; `selected` rows are marked.
+function DataTable<Row>({ columns, rows, rowKey, empty, onRowClick, selected }: DataTableProps<Row>) {
   if (rows.length === 0) return <p className="muted">{empty}</p>
   const grouped = columns.some((column) => column.group !== undefined)
   const header = (column: Column<Row>, key: string, rowSpan?: number) => (
@@ -63,7 +66,20 @@ function DataTable<Row>({ columns, rows, rowKey, empty }: DataTableProps<Row>) {
       </thead>
       <tbody>
         {rows.map((row, index) => (
-          <tr key={rowKey(row, index)}>
+          <tr
+            key={rowKey(row, index)}
+            {...(onRowClick && {
+              tabIndex: 0,
+              'aria-selected': selected?.(row) ?? false,
+              className: 'clickable',
+              onClick: (event: MouseEvent) => onRowClick(row, event),
+              onKeyDown: (event: KeyboardEvent) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault() // Space would scroll the window
+                onRowClick(row, event)
+              },
+            })}
+          >
             {columns.map((column, i) => (
               <td key={i} className={column.numeric ? 'numeric' : undefined}>
                 {column.cell(row)}
