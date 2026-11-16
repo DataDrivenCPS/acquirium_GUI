@@ -103,6 +103,22 @@ All are `fast`. They check how a run's readings are shaped (limit, order, layout
 | `test_streams_are_named_by_their_label` | A stream is named by its own label (`intake in flow rate`), not by the alias of its measurement node, in wide and narrow layouts. |
 | `test_stream_without_a_label_keeps_its_alias` | A stream with no label keeps the alias Acquirium gave it, so a column is never nameless. |
 
+`test_streams_query.py` (`run_streams`, the query for streams chosen in the streams window; fast, fake Acquirium):
+
+| Test | What it checks |
+| --- | --- |
+| `test_no_points_is_rejected` | An empty selection is rejected before any query is built. |
+| `test_unknown_point_is_rejected` | A point that is not a stream is rejected, and the message names it. |
+| `test_points_are_never_written_into_the_query` | Odd text in a point cannot reach the query, because points are only compared with Acquirium's tables. |
+| `test_metadata_has_one_row_per_chosen_stream` | The metadata has exactly the chosen streams, in the order they were chosen. |
+| `test_a_repeated_point_is_one_row` | A stream chosen twice is listed once. |
+| `test_metadata_pulls_no_readings` | The metadata view never asks for readings. |
+| `test_readings_are_wide_with_a_column_per_chosen_stream` | Wide readings have a time column and one column per chosen stream, named by its label. |
+| `test_readings_leave_out_streams_that_were_not_chosen` | Readings of streams that were not chosen are not returned. |
+| `test_narrow_readings_have_a_row_per_reading` | The narrow layout has one row per reading of the chosen streams. |
+| `test_readings_can_be_grouped_and_aggregated` | Group-by and aggregate work on the chosen streams as they do for the query builder. |
+| `test_limit_and_order_go_to_acquirium` | The limit and order are handed to Acquirium, which limits per stream. |
+
 `test_data_routes.py`:
 
 | Test | What it checks |
