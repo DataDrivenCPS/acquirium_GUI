@@ -5,7 +5,7 @@ import { DEFAULT_OPTIONS, READINGS_OPTIONS, toOptionsRequest } from './options'
 import PythonWindow from './PythonWindow'
 import QueryBuilderWindow, { type RunError } from './QueryBuilderWindow'
 import QueryResultsWindow from './QueryResultsWindow'
-import { fillPick, toRequest } from './steps'
+import { fillPick, stepsContainText, toRequest } from './steps'
 
 // The three query windows. This component owns the steps being built and the result options: the builder
 // edits the steps, and Run sends them to POST /api/query/run for the results window. A run shows the metadata
@@ -82,9 +82,12 @@ function QueryWorkspace({ streams }: { streams: string[] }) {
     void (source === 'streams' ? runStreams(streams, used) : run(steps, used))
   }
 
-  // Editing the steps while readings are showing makes those readings stale, so go back to an empty metadata view
+  // Editing the steps while readings are showing makes those readings stale, so go back to an empty metadata view.
+  // Removing a step also drops a run error that no remaining step can cause: the error does not say which step
+  // it came from, so it stays only while some step still holds its text (an error with no text goes at once).
   function editSteps(next: QueryStep[]) {
     setSteps(next)
+    if (error && next.length < steps.length && (error.text === null || !stepsContainText(next, error.text))) setError(null)
     if (source === 'builder' && options.view === 'readings') {
       setOptions(DEFAULT_OPTIONS)
       setRan(DEFAULT_OPTIONS)

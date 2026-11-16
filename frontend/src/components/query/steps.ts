@@ -37,6 +37,15 @@ export function fillPick(steps: QueryStep[], text: string, field: string | null,
   })
 }
 
+// Whether some step still holds exactly `text` (ignoring surrounding spaces) in a class box or a filter value,
+// which is where unmatched text can come from
+export function stepsContainText(steps: QueryStep[], text: string): boolean {
+  const same = (value: string) => value.trim() === text.trim()
+  return steps.some(
+    (step) => (usesClass(step) && same(step.cls)) || ('filters' in step && step.filters.some((f) => same(f.value))),
+  )
+}
+
 // The steps as the backend takes them: a picked node's identifier runs in place of the text shown, and
 // cls_uri and value_uri are not sent
 export function toRequest(steps: QueryStep[]): unknown[] {
