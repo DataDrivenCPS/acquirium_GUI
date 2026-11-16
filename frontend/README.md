@@ -39,7 +39,8 @@ src/
                           later ones 'unreachable'), useDebouncedPost (POST once edits pause)
   components/layout/      Window (titled, collapsible panel; flags sample data), DataTable,
                           PolledBody, CollapseToggle
-  components/streams/     Streams window and its filter
+  components/streams/     Streams window and its filter; a click or Ctrl/Cmd-click on a row selects streams
+                          (the selection lives in App and goes to QueryWorkspace as `streams`)
   components/graph/       Graph window (placeholder)
   components/drivers/     Drivers window
   components/query/       QueryWorkspace owns the steps -> builder (StepEditor, steps.ts) and results windows;
@@ -72,6 +73,49 @@ per source file or component, in the same folders as `src/`.
 Test packages are pinned to versions that still run on Node 20.19 (Vitest 4, jsdom 28,
 jest-dom 6). Install packages with npm 11 (`npx npm@11 install ...`): npm 10 removes the `libc`
 fields from `package-lock.json`.
+
+### Stream selection tests
+
+How clicking streams is covered (see the root README, "Selecting streams").
+
+`tests/components/layout/layout.test.tsx` (`DataTable row selection`):
+
+| Test | What it checks |
+| --- | --- |
+| has plain rows unless it is given a click handler | Without `onRowClick` a row is not focusable and has no `aria-selected`. |
+| reports the clicked row, with the event so the caller can read modifier keys | A plain click and a Ctrl-click both reach `onRowClick`, and the event says which. |
+| marks the selected rows, and only those | `aria-selected` is true for the rows `selected` names. |
+| can be used from the keyboard: a row takes focus, and Enter or Space clicks it | Tab reaches a row and Enter or Space picks it. |
+
+`tests/components/streams/StreamsWindow.test.tsx` (`StreamsWindow selection`):
+
+| Test | What it checks |
+| --- | --- |
+| marks the selected streams, and only those | The `selected` points are marked in the table. |
+| selects just the clicked stream, replacing an earlier selection | A plain click calls `onSelect` with that stream alone. |
+| adds a stream to the selection on Ctrl-click, and on Cmd-click | Both modifier keys add to the selection. |
+| takes a selected stream out of the selection on Ctrl-click | Ctrl-clicking a selected stream removes it. |
+| selects with Enter on a focused row | The keyboard picks a stream like a click. |
+
+`tests/components/query/StreamSelection.test.tsx` (what Query results does with the `streams` prop):
+
+| Test | What it checks |
+| --- | --- |
+| sends nothing and keeps the empty prompt while no stream is picked | No request for an empty selection. |
+| shows the picked streams as rows of the metadata table | The rows, the "2 streams selected" label and the request body. |
+| says "1 stream selected" for a single stream | The label is singular for one stream. |
+| asks again when the picks change, and shows the newest answer | A new selection sends a new request. |
+| does not ask again when it is rendered again with the same picks | The same points in a new array send nothing. |
+| leaves the last results showing when the picks are cleared | An empty selection keeps the table and sends nothing. |
+| can view the readings of the picked streams without any builder step, and go back to the metadata | View readings and Back to metadata use the streams route, never the builder's. |
+| keeps the readings view when the picks change | New picks are asked for as readings while in that view. |
+| goes back to the builder results when Run is pressed in the query builder | Run takes the window back to the builder's query. |
+| does not clear the picked streams readings when the builder steps are edited | Editing steps leaves the streams' readings alone. |
+| shows a rejected selection in the results window and no old table | A 400 shows as an alert, with no stale table. |
+| flags sample rows | Sample rows carry the Sample data flag. |
+| shows the answer to the newest picks even when an older request answers last | A late answer to an older pick is dropped. |
+
+`tests/App.test.tsx` checks the wiring: clicking and Ctrl-clicking rows in the Streams window reaches the results window.
 
 ### Result options tests
 
