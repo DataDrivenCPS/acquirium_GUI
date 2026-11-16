@@ -278,6 +278,66 @@ describe('QueryWorkspace', () => {
     expect(within(step(1, 'entity')).getByLabelText('Class')).toHaveValue('Pump')
   })
 
+  describe('removing a step after a failed run', () => {
+    const failing = (text: string | null) =>
+      mockFetch({ ...routes, [RUN]: { status: 400, body: { detail: `No confident match for '${text}'`, candidates: [PUMP], text } } })
+    const remove = (n: number, kind: string) => userEvent.click(within(step(n, kind)).getByRole('button', { name: 'Remove step' }))
+
+    it('clears the error when the step holding the unmatched text is removed', async () => {
+      failing('pmp')
+      render(<QueryWorkspace streams={[]} />)
+      await userEvent.click(button('Add entity'))
+      await userEvent.click(button('Add related entity'))
+      await userEvent.type(within(step(2, 'related')).getByLabelText('Class'), 'pmp')
+      await userEvent.click(button('Run'))
+      expect(await within(builder()).findByRole('alert')).toBeInTheDocument()
+
+      await remove(2, 'related')
+      expect(within(builder()).queryByRole('alert')).not.toBeInTheDocument()
+      expect(within(builder()).queryByRole('list', { name: 'Closest matches' })).not.toBeInTheDocument()
+      expect(screen.getByText('Run a query to see its results.')).toBeInTheDocument()
+    })
+
+    it('keeps the error when an unrelated step is removed', async () => {
+      failing('pmp')
+      render(<QueryWorkspace streams={[]} />)
+      await userEvent.click(button('Add entity'))
+      await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
+      await userEvent.click(button('Refocus'))
+      await userEvent.click(button('Run'))
+      await within(builder()).findByRole('alert')
+
+      await remove(2, 'refocus')
+      expect(within(builder()).getByRole('alert')).toBeInTheDocument()
+    })
+
+    it('keeps the error while another step still holds the same text', async () => {
+      failing('pmp')
+      render(<QueryWorkspace streams={[]} />)
+      await userEvent.click(button('Add entity'))
+      await userEvent.type(within(step(1, 'entity')).getByLabelText('Class'), 'pmp')
+      await userEvent.click(button('Add related entity'))
+      await userEvent.type(within(step(2, 'related')).getByLabelText('Class'), 'pmp')
+      await userEvent.click(button('Run'))
+      await within(builder()).findByRole('alert')
+
+      await remove(2, 'related')
+      expect(within(builder()).getByRole('alert')).toBeInTheDocument()
+    })
+
+    it('clears an error that names no text when any step is removed', async () => {
+      failing(null)
+      render(<QueryWorkspace streams={[]} />)
+      await userEvent.click(button('Add entity'))
+      await userEvent.click(button('Refocus'))
+      await userEvent.click(button('Run'))
+      await within(builder()).findByRole('alert')
+
+      await remove(2, 'refocus')
+      expect(within(builder()).queryByRole('alert')).not.toBeInTheDocument()
+    })
+  })
+
   it('lets the user pick a candidate for an ambiguous filter value, then carries on with the run', async () => {
     let call = 0
     const fetchMock = mockFetch({
