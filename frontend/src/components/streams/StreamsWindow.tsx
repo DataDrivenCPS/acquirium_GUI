@@ -17,8 +17,20 @@ const COLUMNS: Column<Stream>[] = [
   { header: 'Point', cell: (s) => <code>{s.point}</code> },
 ]
 
-// Every stream Acquirium records, with its newest reading, refreshed every few seconds
-function StreamsWindow() {
+type StreamsWindowProps = {
+  selected: string[] // the points of the streams picked so far
+  onSelect: (points: string[]) => void
+}
+
+// The selection after a click on `point`: a plain click picks just that stream; with Ctrl (or Cmd on a Mac) held, it is added to the picks, or taken out if it is already one
+function clicked(selected: string[], point: string, additive: boolean): string[] {
+  if (!additive) return [point]
+  return selected.includes(point) ? selected.filter((other) => other !== point) : [...selected, point]
+}
+
+// Every stream Acquirium records, with its newest reading, refreshed every few seconds. Clicking a stream picks
+// it (a bar marks its row) so the query results show it; Ctrl-click (Cmd-click) picks several.
+function StreamsWindow({ selected, onSelect }: StreamsWindowProps) {
   const result = usePolledJson<StreamsResponse>('/api/streams')
   const [filter, setFilter] = useState('') // what's typed in the filter box
 
@@ -43,6 +55,8 @@ function StreamsWindow() {
                 columns={COLUMNS}
                 rows={shown}
                 rowKey={(s) => s.point}
+                selected={(s) => selected.includes(s.point)}
+                onRowClick={(s, event) => onSelect(clicked(selected, s.point, event.ctrlKey || event.metaKey))}
                 empty={streams.length === 0 ? 'No streams.' : 'No streams match the filter.'}
               />
             </>

@@ -120,6 +120,54 @@ def test_query_run_rejects_bad_result_options(api, monkeypatch):
     monkeypatch.setattr(server, "run_query", lambda acq, spec: TABLE)
     assert api.post("/query/run", json={**MEASUREMENT, "options": {"limit": 0}}).status_code == 422
 
+# Asserts that the chosen points and the result options reach run_streams, and the answer is flagged live
+@pytest.mark.fast
+def test_query_streams_live(api, monkeypatch):
+    seen = []
+    monkeypatch.setattr(server, "run_streams", lambda acq, points, options: seen.append((points, options)) or TABLE)
+    body = {"points": ["ns1:cpu_percent", "ns1:mem"], "options": {"view": "readings", "limit": 10}}
+    assert api.post("/query/streams", json=body).json() == {"source": "live", **TABLE}
+    assert seen[0][0] == ["ns1:cpu_percent", "ns1:mem"] and (seen[0][1].view, seen[0][1].limit) == ("readings", 10)
+
+# Asserts that the options are optional, so a bare list of points asks for the metadata view
+@pytest.mark.fast
+def test_query_streams_options_default_to_metadata(api, monkeypatch):
+    seen = []
+    monkeypatch.setattr(server, "run_streams", lambda acq, points, options: seen.append(options.view) or TABLE)
+    api.post("/query/streams", json={"points": ["ns1:cpu_percent"]})
+    assert seen == ["metadata"]
+
+# Asserts that a rejected selection (empty, or not a stream) is a 400 with its message
+@pytest.mark.fast
+def test_query_streams_rejected_selection(api, monkeypatch):
+    def reject(acq, points, options):
+        raise ValueError("Select at least one stream")
+    monkeypatch.setattr(server, "run_streams", reject)
+    monkeypatch.setattr(server, "has_streams", lambda acq: True)
+    response = api.post("/query/streams", json={"points": []})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Select at least one stream"
+
+# Asserts that while Acquirium has no streams, the sample streams the window lists get the sample metadata rows
+@pytest.mark.fast
+def test_query_streams_sample_without_live_data(api, monkeypatch):
+    def reject(acq, points, options):
+        raise ValueError("No stream found for 'ns1:cpu_percent'")
+    monkeypatch.setattr(server, "run_streams", reject)
+    monkeypatch.setattr(server, "has_streams", lambda acq: False)
+    body = api.post("/query/streams", json={"points": ["ns1:cpu_percent"]}).json()
+    assert body == {"source": "sample", **SAMPLE_QUERY_RESULT}
+
+# Asserts that readings of sample streams are not made up: the sample rows only stand in for the metadata table
+@pytest.mark.fast
+def test_query_streams_sample_readings_are_rejected(api, monkeypatch):
+    def reject(acq, points, options):
+        raise ValueError("No stream found for 'ns1:cpu_percent'")
+    monkeypatch.setattr(server, "run_streams", reject)
+    monkeypatch.setattr(server, "has_streams", lambda acq: False)
+    response = api.post("/query/streams", json={"points": ["ns1:cpu_percent"], "options": {"view": "readings"}})
+    assert response.status_code == 400
+
 # Asserts that a rejected query (a ValueError: unknown alias, unresolvable text, ...) comes back as a 400 with its message
 @pytest.mark.fast
 def test_query_run_rejected_query(api, monkeypatch):

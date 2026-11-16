@@ -97,6 +97,23 @@
   .sub-header th {
     top: 28px;
   }
+
+  /* clickable rows: a hover tint, and a bar on the left of the selected ones (an inset shadow, so no column moves) */
+  tr.clickable {
+    cursor: pointer;
+  }
+
+  tr.clickable:hover {
+    background: var(--code-bg);
+  }
+
+  tr.clickable[aria-selected='true'] {
+    background: var(--code-bg);
+
+    td:first-child {
+      box-shadow: inset 4px 0 0 var(--text-h);
+    }
+  }
 }
 
 .muted {

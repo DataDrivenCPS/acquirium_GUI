@@ -263,6 +263,10 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
         table = shape_readings(pull_readings(query, spec.options), spec.options)
     else:
         table = query.metadata()
+    return table_result(table)
+
+def table_result(table: Any) -> dict:
+    """A table as the page receives it: its columns, at most MAX_ROWS rows (every cell text or None), the full row count and whether rows were cut."""
     return {
         "columns": table.columns,
         "rows": [[None if cell is None else str(cell) for cell in row] for row in table.head(MAX_ROWS).rows()],

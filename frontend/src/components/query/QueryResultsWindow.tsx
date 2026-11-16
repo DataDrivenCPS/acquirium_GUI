@@ -25,6 +25,8 @@ type QueryResultsWindowProps = {
   onViewReadings: () => void
   canViewReadings: boolean // false without a measurements step, the only thing that has readings
   onBackToMetadata: () => void
+  label?: string | null // what the table is of, e.g. '2 streams selected', shown above it
+  error?: string | null // why there is no table, shown above where it would be
 }
 
 // The table the last run returned, as shown. A metadata table shows names instead of identifiers (see display.ts);
@@ -46,7 +48,8 @@ function shownTable(result: QueryResult, ran: ResultOptions): ShownTable {
 const termName = (header: string) =>
   header.endsWith('.unit') ? unitName : header.endsWith('.quantity_kind') ? localName : null
 
-function ResultsTable({ result, table, ran }: { result: QueryResult | null; table: ShownTable | null; ran: ResultOptions }) {
+function ResultsTable({ result, table, ran, label, error }: { result: QueryResult | null; table: ShownTable | null; ran: ResultOptions; label: string | null; error: string | null }) {
+  if (error !== null) return <p role="alert" className="text-error">{error}</p>
   if (result === null || table === null) return <p className="muted">Run a query to see its results.</p>
   const readings = ran.view === 'readings'
   const { names, headers } = table
@@ -65,6 +68,7 @@ function ResultsTable({ result, table, ran }: { result: QueryResult | null; tabl
   })
   return (
     <>
+      {label !== null && <p>{label}</p>}
       <p>{summary(result)}</p>
       <DataTable columns={columns} rows={table.rows} rowKey={(_, index) => String(index)} empty="No rows matched." />
     </>
@@ -73,7 +77,7 @@ function ResultsTable({ result, table, ran }: { result: QueryResult | null; tabl
 
 // The results of the last run. A query first shows its metadata (what matched). View readings switches to the
 // values of the matched streams, with the data aggregation panel below them.
-function QueryResultsWindow({ result, ran, options, onOptionsChange, onApply, canApply, onViewReadings, canViewReadings, onBackToMetadata }: QueryResultsWindowProps) {
+function QueryResultsWindow({ result, ran, options, onOptionsChange, onApply, canApply, onViewReadings, canViewReadings, onBackToMetadata, label = null, error = null }: QueryResultsWindowProps) {
   const readings = options.view === 'readings'
   const table = result === null ? null : shownTable(result, ran)
   const exportable: ExportTable | null = table && { headers: table.headers, rows: table.rows }
@@ -89,7 +93,7 @@ function QueryResultsWindow({ result, ran, options, onOptionsChange, onApply, ca
             {exportButtons}
           </div>
           <div className="readings-data">
-            <ResultsTable result={result} table={table} ran={ran} />
+            <ResultsTable result={result} table={table} ran={ran} label={label} error={error} />
           </div>
           <ResultOptionsPanel options={options} onChange={onOptionsChange} onApply={onApply} canApply={canApply} />
         </div>
@@ -106,7 +110,7 @@ function QueryResultsWindow({ result, ran, options, onOptionsChange, onApply, ca
             </button>
             {exportButtons}
           </div>
-          <ResultsTable result={result} table={table} ran={ran} />
+          <ResultsTable result={result} table={table} ran={ran} label={label} error={error} />
         </>
       )}
     </Window>

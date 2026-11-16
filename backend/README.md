@@ -35,6 +35,7 @@ contents. Don't set Acquirium's `[server] port` to 8000, which this server uses.
 | `POST /query/python` | query builder steps as a Python script (400 when there are no steps) |
 | `POST /query/resolve` | the one node a text names, or a 400 with the closest candidates |
 | `POST /query/run` | query builder steps run on Acquirium; a sample table if nothing matches and there are no streams. A rejected query is a 400 with `detail`, `candidates` and `text` |
+| `POST /query/streams` | the streams picked in the streams window, as `{points, options}`: their metadata, or with the readings view their readings, shaped like `/query/run`. An empty selection or a point that is not a stream is a 400; a sample table while Acquirium has no streams (metadata view only) |
 
 The query routes delegate to the [`query_builder`](src/query_builder/) package inside `src/`.
 

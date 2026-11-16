@@ -84,6 +84,46 @@ describe('DataTable', () => {
   })
 })
 
+describe('DataTable row selection', () => {
+  type Row = { name: string }
+  const columns = [{ header: 'Name', cell: (row: Row) => row.name }]
+  const rows = [{ name: 'a' }, { name: 'b' }]
+
+  it('has plain rows unless it is given a click handler', () => {
+    render(<DataTable columns={columns} rows={rows} rowKey={(r) => r.name} empty="none" />)
+    const row = screen.getByRole('row', { name: 'a' })
+    expect(row).not.toHaveAttribute('aria-selected')
+    expect(row).not.toHaveAttribute('tabindex')
+  })
+
+  it('reports the clicked row, with the event so the caller can read modifier keys', async () => {
+    const clicked: [Row, boolean][] = []
+    render(<DataTable columns={columns} rows={rows} rowKey={(r) => r.name} empty="none" onRowClick={(row, event) => clicked.push([row, event.ctrlKey])} />)
+    const user = userEvent.setup() // one instance, so a held key stays held for the next click
+    await user.click(screen.getByRole('row', { name: 'b' }))
+    await user.keyboard('{Control>}')
+    await user.click(screen.getByRole('row', { name: 'a' }))
+    expect(clicked).toEqual([[{ name: 'b' }, false], [{ name: 'a' }, true]])
+  })
+
+  it('marks the selected rows, and only those', () => {
+    render(<DataTable columns={columns} rows={rows} rowKey={(r) => r.name} empty="none" selected={(r) => r.name === 'b'} onRowClick={() => {}} />)
+    expect(screen.getByRole('row', { name: 'a' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('row', { name: 'b' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('can be used from the keyboard: a row takes focus, and Enter or Space clicks it', async () => {
+    const clicked: string[] = []
+    render(<DataTable columns={columns} rows={rows} rowKey={(r) => r.name} empty="none" onRowClick={(row) => clicked.push(row.name)} />)
+    await userEvent.tab()
+    expect(screen.getByRole('row', { name: 'a' })).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.tab()
+    await userEvent.keyboard(' ')
+    expect(clicked).toEqual(['a', 'b'])
+  })
+})
+
 describe('PolledBody', () => {
   it('shows a loading line, a starting line, an unreachable line, or the rendered data', () => {
     const { rerender } = render(<PolledBody result={{ state: 'checking' }}>{() => 'data'}</PolledBody>)

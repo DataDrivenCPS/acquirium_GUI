@@ -53,7 +53,8 @@ A grid of plain data windows. Click a window's title to collapse it to its title
 again to expand it.
 
 - **Streams**: every stream (measurement point) Acquirium records, with its newest reading, unit,
-  quantity kind and source. Refreshes every 3 seconds; the filter box narrows the list.
+  quantity kind and source. Refreshes every 3 seconds; the filter box narrows the list. Click a stream
+  to see it in Query results (see "Selecting streams").
 - **Graph** (right of Streams): a placeholder; nothing is plotted yet.
 - **Query builder** and **Query results**: build an Acquirium query step by step (entity, related
   entity, measurements, filter, refocus), press Run, and see the metadata table it returns. Typed
@@ -72,6 +73,22 @@ again to expand it.
 While Acquirium has no streams or drivers, the Streams and Drivers windows show made-up sample rows,
 marked **Sample data**. As soon as Acquirium has live data, it replaces the samples on the next
 refresh.
+
+## Selecting streams
+
+Click a stream in the Streams window to query it without building a query. A bar appears on the left of its
+row, and Query results shows the stream as a row of the metadata table, headed "1 stream selected". Hold
+Ctrl (Cmd on a Mac) and click more streams to select several; Ctrl-click a selected stream to take it out. The
+rows can also be reached with Tab and picked with Enter or Space.
+
+- **View readings** works on the selected streams without any builder step, and the aggregation panel, Apply,
+  Back to metadata and the export buttons work as they do for a builder query.
+- Selecting different streams while readings are showing keeps you in the readings view, with the new streams.
+- **Run** in the query builder takes Query results back to the builder's query. The steps are kept the whole
+  time, and the selection stays marked in the Streams window.
+- Clearing the selection leaves the last results showing.
+- A stream that is no longer in Acquirium is reported in the results window, with no table.
+- While Acquirium has no streams, the sample streams give the sample metadata rows, and their readings are not made up.
 
 ## Aggregating readings
 
