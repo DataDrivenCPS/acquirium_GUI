@@ -126,3 +126,8 @@ All are `fast`. They check how a run's readings are shaped (limit, order, layout
 | `test_query_run_empty_readings_is_not_sampled` | An empty readings result is not replaced by the sample rows, which have the metadata layout. |
 | `test_query_run_passes_result_options` | The options in the request reach `run_query` as parsed values. |
 | `test_query_run_rejects_bad_result_options` | An out-of-range option gets a 422 before anything runs. |
+| `test_query_streams_live` | The chosen points and options reach `run_streams` and the answer is flagged live. |
+| `test_query_streams_options_default_to_metadata` | A request with only points asks for the metadata view. |
+| `test_query_streams_rejected_selection` | An empty or invalid selection is a 400 with its message. |
+| `test_query_streams_sample_without_live_data` | With no streams in Acquirium, the metadata view answers with the sample rows the streams window lists. |
+| `test_query_streams_sample_readings_are_rejected` | Readings of sample streams are not made up: that is a 400. |

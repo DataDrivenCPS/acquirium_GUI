@@ -3,10 +3,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 import acquirium as acquirium_lib
 from src.config import load_config
 from src.drivers import live_drivers
-from src.query_builder import QuerySpec, ResolveRequest, query_attributes, resolve_text, run_query, to_python
+from src.query_builder import QuerySpec, ResolveRequest, ResultOptions, query_attributes, resolve_text, run_query, run_streams, to_python
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS, live_or_sample
 from src.streams import has_streams, live_streams
 
@@ -117,4 +118,21 @@ def query_run(spec: QuerySpec):
     # sample rows stand in only for the metadata table; an empty readings pull is shown as it is
     if spec.options.view == "metadata" and not result["rows"] and not has_streams(acq):
         return {"source": "sample", **SAMPLE_QUERY_RESULT}
+    return {"source": "live", **result}
+
+# The streams picked in the streams window (their point identifiers) and how to shape the answer
+class StreamsRequest(BaseModel):
+    points: list[str]
+    options: ResultOptions = ResultOptions()
+
+# Metadata (or, for the readings view, readings) of the chosen streams; the sample table while Acquirium has no
+# streams, because the streams window then lists sample streams that Acquirium does not know
+@app.post("/query/streams")
+def query_streams(request: StreamsRequest):
+    try:
+        result = run_streams(acq, request.points, request.options)
+    except ValueError as error:
+        if request.options.view == "metadata" and not has_streams(acq):
+            return {"source": "sample", **SAMPLE_QUERY_RESULT}
+        return rejected(error)
     return {"source": "live", **result}
