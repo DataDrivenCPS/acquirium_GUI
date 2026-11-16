@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { QueryStep } from '../../../src/api/types'
 import type { Candidate } from '../../../src/api/types'
-import { fillPick, newStep, toRequest } from '../../../src/components/query/steps'
+import { fillPick, newStep, stepsContainText, toRequest } from '../../../src/components/query/steps'
 
 describe('newStep', () => {
   it('starts an entity step blank, with no filters', () => {
@@ -79,6 +79,22 @@ describe('fillPick', () => {
     const mixed = [entity('pump'), withFilter('type', 'pump')]
     expect((fillPick(mixed, 'pump', 'type', PUMP)[0] as { cls: string }).cls).toBe('pump')
     expect((fillPick(mixed, 'pump', 'class', PUMP)[1] as { filters: { value: string }[] }).filters[0].value).toBe('pump')
+  })
+})
+
+describe('stepsContainText', () => {
+  it('finds the text in an entity class or a related class, ignoring surrounding spaces', () => {
+    expect(stepsContainText([entity('pmp')], 'pmp')).toBe(true)
+    expect(stepsContainText([entity('Tank'), related(' pmp ')], 'pmp')).toBe(true)
+  })
+
+  it('finds the text in a filter value', () => {
+    expect(stepsContainText([withFilter('type', 'pump')], 'pump')).toBe(true)
+  })
+
+  it('does not find text that no step holds', () => {
+    expect(stepsContainText([entity('Tank'), withFilter('type', 'pump'), newStep('refocus')], 'pmp')).toBe(false)
+    expect(stepsContainText([], 'pmp')).toBe(false)
   })
 })
 
