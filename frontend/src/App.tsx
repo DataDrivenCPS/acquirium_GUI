@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import DriversWindow from './components/drivers/DriversWindow'
 import GraphWindow from './components/graph/GraphWindow'
 import QueryWorkspace from './components/query/QueryWorkspace'
@@ -6,6 +7,8 @@ import StreamsWindow from './components/streams/StreamsWindow'
 import './App.css'
 
 function App() {
+  const [selectedStreams, setSelectedStreams] = useState<string[]>([]) // points picked in the Streams window
+
   return (
     // <> ... </> groups elements without adding an extra tag to the page
     <>
@@ -18,7 +21,7 @@ function App() {
         {/* each window places itself in a named cell of this grid (grid-template-areas in App.css).
             They're listed in the same order as on screen, so the Tab key moves through them top to bottom. */}
         <div className="operator-grid">
-          <StreamsWindow />
+          <StreamsWindow selected={selectedStreams} onSelect={setSelectedStreams} />
           <GraphWindow />
           <QueryWorkspace />
           <DriversWindow />
