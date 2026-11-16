@@ -1,4 +1,4 @@
-import type { QueryResult } from '../../api/types'
+import type { QueryResult, ResultOptions } from '../../api/types'
 import { localName, NONE, unitName } from '../../format'
 import DataTable, { type Column } from '../layout/DataTable'
 import { displayTable, ENTITY_SEPARATOR, readableHeaders, readableStream } from './display'
@@ -57,7 +57,10 @@ function ResultsTable({ result, table, ran }: { result: QueryResult | null; tabl
       header: bar >= 0 ? headers[index].slice(bar + ENTITY_SEPARATOR.length) : headers[index],
       group: bar >= 0 ? headers[index].slice(0, bar) : undefined,
       title: headers[index].toLowerCase() === name.toLowerCase() ? undefined : name, // only a real rename needs the original on hover
-      cell: (row) => row[index] ?? NONE,
+      cell: (row) => {
+        const term = readings ? null : termName(name)
+        return term === null || row[index] === null ? (row[index] ?? NONE) : <abbr title={row[index]}>{term(row[index])}</abbr>
+      },
     }
   })
   return (
