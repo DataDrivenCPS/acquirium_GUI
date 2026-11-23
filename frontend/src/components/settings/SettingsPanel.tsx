@@ -77,7 +77,7 @@ function SettingsPanel() {
           <strong>Settings</strong>
           <span className="settings-saved" role="status">
             <StatusDot tone={tone} />
-            {hasInvalid ? 'Not saved: fix the highlighted value' : save.state === 'error' ? `Not saved: ${save.message}` : label}
+            {hasInvalid ? 'Invalid: fix the highlighted value' : save.state === 'error' ? `Not saved: ${save.message}` : label}
           </span>
         </div>
         {payload && values ? (
