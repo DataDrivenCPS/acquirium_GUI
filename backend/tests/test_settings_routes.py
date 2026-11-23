@@ -80,3 +80,24 @@ def test_failed_save_at_shutdown_still_shuts_acquirium_down(api, monkeypatch):
     with TestClient(app=server.app):
         pass
     assert stopped == [True]
+
+# Asserts that a PUT and a reset arriving together leave the file and the running settings agreeing
+@pytest.mark.fast
+def test_concurrent_put_and_reset_agree(api, tmp_path):
+    import threading
+    import time
+    real_save = settings.save
+    def slow_save(new, path):
+        real_save(new, path)
+        if new == Settings.model_validate(CHANGED):
+            time.sleep(0.3)  # lets the reset run between this save and this PUT's apply
+    server.settings_store.save = slow_save
+    try:
+        put = threading.Thread(target=lambda: api.put("/settings", json=CHANGED))
+        put.start()
+        time.sleep(0.1)
+        api.post("/settings/reset")
+        put.join()
+    finally:
+        server.settings_store.save = real_save
+    assert json.loads((tmp_path / "settings.json").read_text()) == settings.get().model_dump()
