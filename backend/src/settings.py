@@ -9,8 +9,8 @@ import tempfile
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-# Where the settings are kept, relative to the server's working directory (backend/)
-SETTINGS_FILE = Path("settings.json")
+# Where the settings are kept: backend/settings.json, wherever the server was started from
+SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
 
 class ResolutionSettings(BaseModel):
     """How typed text is matched to a node (see query_builder/resolve.py)."""

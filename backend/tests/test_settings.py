@@ -3,7 +3,7 @@ import pytest
 from pydantic import ValidationError
 from pydantic import BaseModel, Field
 import src.settings as settings_module
-from src.settings import DEFAULTS, Settings, limits, load, save
+from src.settings import DEFAULTS, SETTINGS_FILE, Settings, limits, load, save
 
 # Asserts that the defaults are the values the constants had before they became settings
 @pytest.mark.fast
@@ -86,3 +86,10 @@ def test_limits_tolerate_unbounded_fields(monkeypatch):
         group: Group = Group()
     monkeypatch.setattr(settings_module, "Settings", Everything)
     assert limits() == {"group": {"free": {"min": None, "max": None}, "half": {"min": 0, "max": None}}}
+
+# Asserts that the settings file is found next to the backend code, wherever the server was started from
+@pytest.mark.fast
+def test_settings_file_does_not_depend_on_working_directory():
+    assert SETTINGS_FILE.is_absolute()
+    assert SETTINGS_FILE.parent.name == "backend"
+    assert SETTINGS_FILE.name == "settings.json"
