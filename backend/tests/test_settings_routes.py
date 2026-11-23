@@ -61,3 +61,11 @@ def test_settings_survive_restart(api, monkeypatch):
 def test_shutdown_saves(api, tmp_path):
     server.save_settings()
     assert json.loads((tmp_path / "settings.json").read_text()) == DEFAULTS.model_dump()
+
+# Asserts that when the file cannot be written the change is refused and the running settings stay as they were
+@pytest.mark.fast
+def test_put_that_cannot_save_changes_nothing(api, monkeypatch):
+    monkeypatch.setattr(server.settings_store, "save", lambda *a: (_ for _ in ()).throw(OSError("disk")))
+    client = TestClient(app=server.app, raise_server_exceptions=False)
+    assert client.put("/settings", json=CHANGED).status_code == 500
+    assert settings.get() == DEFAULTS

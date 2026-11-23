@@ -90,18 +90,18 @@ def settings_payload():
 def get_settings():
     return settings_payload()
 
-# Applies new settings to the next request and saves them, so they survive a restart; out-of-range values are a 422
+# Saves new settings, then applies them to the next request, so they survive a restart; out-of-range values are a 422
 @app.put("/settings")
 def put_settings(new: Settings):
+    settings_store.save(new, SETTINGS_PATH)  # first, so a failed write leaves the running settings as they were
     settings_store.use(new)
-    save_settings()
     return settings_payload()
 
 # Puts every setting back to its default
 @app.post("/settings/reset")
 def reset_settings():
+    settings_store.save(settings_store.DEFAULTS, SETTINGS_PATH)
     settings_store.use(settings_store.DEFAULTS)
-    save_settings()
     return settings_payload()
 
 # Lists every stream with its newest reading; sample streams while Acquirium has none
