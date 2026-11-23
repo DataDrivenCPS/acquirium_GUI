@@ -44,7 +44,7 @@ function SettingsPanel() {
   // An unusable entry is never sent, so "Saved" would be wrong while one is showing (the last valid value is what is saved)
   const hasInvalid = invalidFields.size > 0 && save.state !== 'loading'
   const label = hasInvalid ? 'Not saved' : SAVE_LABEL[save.state]
-  const summary = `Settings: ${label.toLowerCase()}`
+  const summary = `Settings: ${hasInvalid ? 'invalid' : label.toLowerCase()}` // the header button's name and tooltip
   const tone = hasInvalid ? 'error' : SAVE_TONE[save.state]
   const setValidity = (key: string, valid: boolean) =>
     setInvalidFields((current) => {
