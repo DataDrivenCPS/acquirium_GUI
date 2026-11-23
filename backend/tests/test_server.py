@@ -3,6 +3,7 @@ import socket
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 from fastapi.testclient import TestClient
 from src.config import ConfigError
@@ -16,13 +17,30 @@ import src.server as server
 
 # Environment variable the launcher uses to hand the server a config path
 CONFIG_ENV = "ACQUIRIUM_GUI_CONFIG"
+# Environment variable that points the server at an already running Acquirium instead of starting one
+ADDRESS_ENV = "ACQUIRIUM_GUI_ADDRESS"
+
+class FakeCalls(list):
+    """The configs init received (a list, so existing assertions read naturally), plus addresses and shutdown count."""
+    def __init__(self):
+        super().__init__()
+        self.addresses = []
+        self.shutdowns = 0
 
 @pytest.fixture
 def fake_acquirium(monkeypatch):
-    """Records the config passed to acquirium's runtime instead of starting a real server."""
-    calls = []
-    monkeypatch.setattr(server.acquirium_lib, "init", lambda config=None: calls.append(config))
-    monkeypatch.setattr(server.acquirium_lib, "shutdown", lambda: None)
+    """Records what acquirium's runtime is asked to do instead of starting or attaching to a real server."""
+    calls = FakeCalls()
+    def init(config=None, address=None):
+        if address is not None:
+            calls.addresses.append(address)
+        else:
+            calls.append(config)
+        return SimpleNamespace(address=address or "http://127.0.0.1:1")
+    def shutdown():
+        calls.shutdowns += 1
+    monkeypatch.setattr(server.acquirium_lib, "init", init)
+    monkeypatch.setattr(server.acquirium_lib, "shutdown", shutdown)
     return calls
 
 # Asserts that a missing config path in the environment aborts server startup
@@ -61,6 +79,53 @@ def test_fastapi_startup_finds_local_config(monkeypatch, tmp_path, fake_acquiriu
     with TestClient(app=app):
         pass
     assert fake_acquirium == [Path("acquirium.toml")]
+
+# Asserts that an address in the environment attaches to that server and never loads a config
+@pytest.mark.fast
+def test_fastapi_startup_with_address(monkeypatch, tmp_path, fake_acquirium):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_ENV, raising=False)
+    monkeypatch.setenv(ADDRESS_ENV, "http://127.0.0.1:8765")
+    with TestClient(app=app):
+        pass
+    assert fake_acquirium.addresses == ["http://127.0.0.1:8765"]
+    assert list(fake_acquirium) == []
+
+# Asserts that the address wins over a config path, even a bad one, and that a local acquirium.toml is ignored
+@pytest.mark.fast
+def test_address_wins_over_config(monkeypatch, tmp_path, fake_acquirium):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "acquirium.toml").write_text(PORTED.format(port=0))
+    monkeypatch.setenv(CONFIG_ENV, "FakeDirectory/missing.toml")
+    monkeypatch.setenv(ADDRESS_ENV, "http://127.0.0.1:8765")
+    with TestClient(app=app):
+        pass
+    assert fake_acquirium.addresses == ["http://127.0.0.1:8765"]
+    assert list(fake_acquirium) == []
+
+# Asserts that /runtime-info reports whether the GUI attached to a running server or started its own
+@pytest.mark.fast
+def test_runtime_info_reports_mode(monkeypatch, tmp_path, fake_acquirium):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_ENV, raising=False)
+    monkeypatch.setenv(ADDRESS_ENV, "http://127.0.0.1:8765")
+    with TestClient(app=app) as client:
+        info = client.get("/runtime-info").json()
+    assert info["mode"] == "attached" and info["acquirium_address"] == "http://127.0.0.1:8765"
+    monkeypatch.delenv(ADDRESS_ENV)
+    with TestClient(app=app) as client:
+        assert client.get("/runtime-info").json()["mode"] == "managed"
+
+# Asserts that shutdown runs once and the module globals are cleared when the app stops
+@pytest.mark.fast
+def test_shutdown_clears_globals(monkeypatch, tmp_path, fake_acquirium):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_ENV, raising=False)
+    monkeypatch.setenv(ADDRESS_ENV, "http://127.0.0.1:8765")
+    with TestClient(app=app):
+        assert server.acq is not None
+    assert fake_acquirium.shutdowns == 1
+    assert server.acq is None and server.config is None
 
 class TestServerClass:
 
