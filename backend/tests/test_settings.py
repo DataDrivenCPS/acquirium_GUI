@@ -1,6 +1,8 @@
 import json
 import pytest
 from pydantic import ValidationError
+from pydantic import BaseModel, Field
+import src.settings as settings_module
 from src.settings import DEFAULTS, Settings, limits, load, save
 
 # Asserts that the defaults are the values the constants had before they became settings
@@ -73,3 +75,14 @@ def test_limits_describe_every_setting():
         "resolution": {"min_score": {"min": 0, "max": 1}, "margin": {"min": 0, "max": 1}, "candidate_count": {"min": 1, "max": 20}},
         "results": {"max_rows": {"min": 1, "max": 100000}},
     }
+
+# Asserts that a setting without a lower or upper bound does not break the limits the UI asks for
+@pytest.mark.fast
+def test_limits_tolerate_unbounded_fields(monkeypatch):
+    class Group(BaseModel):
+        free: int = 3
+        half: int = Field(default=1, ge=0)
+    class Everything(BaseModel):
+        group: Group = Group()
+    monkeypatch.setattr(settings_module, "Settings", Everything)
+    assert limits() == {"group": {"free": {"min": None, "max": None}, "half": {"min": 0, "max": None}}}

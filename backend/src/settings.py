@@ -56,12 +56,13 @@ def save(settings: Settings, path: Path) -> None:
         raise
 
 def limits() -> dict:
-    """{"group": {"setting": {"min": ..., "max": ...}}}: the range each setting accepts, for the UI to show."""
+    """{"group": {"setting": {"min": ..., "max": ...}}}: the range each setting accepts, for the UI to show.
+    A bound the setting does not have is None."""
     schema = Settings.model_json_schema()
     result = {}
     for group, group_ref in schema["properties"].items():
         fields = schema["$defs"][group_ref["$ref"].split("/")[-1]]["properties"]
-        result[group] = {name: {"min": field["minimum"], "max": field["maximum"]} for name, field in fields.items()}
+        result[group] = {name: {"min": field.get("minimum"), "max": field.get("maximum")} for name, field in fields.items()}
     return result
 
 # The values in force right now; the server replaces them at startup and on every change
