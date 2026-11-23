@@ -69,3 +69,14 @@ def test_put_that_cannot_save_changes_nothing(api, monkeypatch):
     client = TestClient(app=server.app, raise_server_exceptions=False)
     assert client.put("/settings", json=CHANGED).status_code == 500
     assert settings.get() == DEFAULTS
+
+# Asserts that a settings write that fails at shutdown does not stop Acquirium from being shut down
+@pytest.mark.fast
+def test_failed_save_at_shutdown_still_shuts_acquirium_down(api, monkeypatch):
+    stopped = []
+    monkeypatch.setattr(server.acquirium_lib, "init", lambda config=None: object())
+    monkeypatch.setattr(server.acquirium_lib, "shutdown", lambda: stopped.append(True))
+    monkeypatch.setattr(server.settings_store, "save", lambda *a: (_ for _ in ()).throw(OSError("disk")))
+    with TestClient(app=server.app):
+        pass
+    assert stopped == [True]

@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -44,7 +45,10 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        save_settings()
+        try:
+            save_settings()
+        except OSError:  # a failed write must not stop Acquirium from shutting down
+            logging.exception("Could not save settings at shutdown")
         acquirium_lib.shutdown()
 
 app = FastAPI(lifespan=lifespan)
