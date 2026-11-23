@@ -45,7 +45,7 @@ def test_graph_status(api):
 def test_runtime_info_without_config(api):
     response = api.get("/runtime-info")
     assert response.status_code == 200
-    assert response.json() == {"config": None, "acquirium_address": ACQUIRIUM_ADDRESS}
+    assert response.json() == {"config": None, "acquirium_address": ACQUIRIUM_ADDRESS, "mode": "managed"}
 
 # Asserts that runtime info reports the loaded config as an absolute path
 @pytest.mark.fast
