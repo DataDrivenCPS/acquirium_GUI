@@ -15,7 +15,7 @@ const SAVE_TONE = { loading: 'pending', saved: 'ok', saving: 'pending', error: '
 // Clicking the button again, pressing Escape, or clicking anywhere else closes the window.
 // To add a setting, see backend/src/settings.py and fields.ts.
 function SettingsPanel() {
-  const { payload, values, save, change, resetOne, resetAll } = useSettings()
+  const { payload, values, save, resets, change, resetOne, resetAll } = useSettings()
   const [open, setOpen] = useState(false)
   const [invalidFields, setInvalidFields] = useState<ReadonlySet<string>>(new Set()) // fields whose box holds an unusable entry
   const windowId = useId()
@@ -89,7 +89,7 @@ function SettingsPanel() {
                 const limits = payload.limits[group.key] as Record<string, { min: number; max: number }>
                 return (
                   <SettingField
-                    key={spec.name}
+                    key={`${spec.name}-${resets}`} // a new key after Reset all, so a box holding an unusable entry starts over
                     spec={spec}
                     value={section[spec.name]}
                     defaultValue={defaults[spec.name]}

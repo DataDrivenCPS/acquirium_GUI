@@ -18,6 +18,7 @@ export type SaveState =
 export function useSettings() {
   const [payload, setPayload] = useState<SettingsPayload | null>(null)
   const [values, setValues] = useState<Settings | null>(null) // what the form shows; may be ahead of the backend while saving
+  const [resets, setResets] = useState(0) // counts answered Reset alls, so the fields can drop what was typed in them
   const [save, setSave] = useState<SaveState>({ state: 'loading' })
   const valuesRef = useRef<Settings | null>(null) // the same values as `values`, readable straight after a change
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -96,6 +97,7 @@ export function useSettings() {
         setPayload(data)
         valuesRef.current = data.values
         setValues(data.values)
+        setResets((count) => count + 1)
         setSave({ state: 'saved' })
       })
       .catch((error: ApiError) => {
@@ -103,5 +105,5 @@ export function useSettings() {
       })
   }, [])
 
-  return { payload, values, save, change, resetOne, resetAll }
+  return { payload, values, save, resets, change, resetOne, resetAll }
 }

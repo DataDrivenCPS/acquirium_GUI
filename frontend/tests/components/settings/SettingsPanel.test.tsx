@@ -168,6 +168,37 @@ describe('SettingsPanel', () => {
     expect(requestBodies(fetchMock, 'POST /api/settings/reset')).toHaveLength(1)
   })
 
+  it('Reset all to defaults clears an invalid entry even when the saved value is already the default', async () => {
+    mockFetch({
+      'GET /api/settings': { body: payload() },
+      'POST /api/settings/reset': { body: payload() },
+    })
+    render(<SettingsPanel />)
+    await openPanel()
+    const maxRows = await screen.findByLabelText('Maximum Rows')
+    await userEvent.clear(maxRows)
+    await userEvent.type(maxRows, '0')
+    expect(await screen.findByText('Invalid')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset all to defaults' }))
+    await waitFor(() => expect(screen.getByLabelText('Maximum Rows')).toHaveValue(1000))
+    expect(screen.queryByText('Invalid')).not.toBeInTheDocument()
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+
+  it('offers Reset for an invalid entry, and it puts the default back', async () => {
+    mockFetch({ 'GET /api/settings': { body: payload() } })
+    render(<SettingsPanel />)
+    await openPanel()
+    const maxRows = await screen.findByLabelText('Maximum Rows')
+    await userEvent.clear(maxRows)
+    await userEvent.type(maxRows, '0')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reset Maximum Rows' }))
+    expect(screen.getByLabelText('Maximum Rows')).toHaveValue(1000)
+    expect(screen.queryByText('Invalid')).not.toBeInTheDocument()
+  })
+
   it('says so when a save fails', async () => {
     mockFetch({
       'GET /api/settings': { body: payload() },

@@ -83,8 +83,12 @@ function SettingField({ spec, value, defaultValue, range, onChange, onReset, onV
           aria-describedby={invalid ? `${id}-error` : undefined}
           onChange={(event) => edit(event.target.value)}
         />
-        {value !== defaultValue && (
-          <button type="button" className="settings-reset" aria-label={`Reset ${spec.label}`} onClick={onReset}>
+        {(value !== defaultValue || invalid) && (
+          <button type="button" className="settings-reset" aria-label={`Reset ${spec.label}`} onClick={() => {
+              setText(String(defaultValue)) // the saved value may already be the default, so the box would not resync by itself
+              onReset()
+            }}
+          >
             Reset
           </button>
         )}
