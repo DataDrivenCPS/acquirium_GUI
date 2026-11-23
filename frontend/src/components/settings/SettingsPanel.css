@@ -1,0 +1,212 @@
+/* The settings button in the page header, and the window it drops down. Mirrors StatusPanel.css. */
+.settings-panel {
+  /* the dot colors are the ones the Status button uses (.status-dot--* in StatusPanel.css reads these) */
+  --status-ok: #16a34a;
+  --status-pending: #d97706;
+  --status-error: #dc2626;
+  --settings-accent: #6d4fd0;
+
+  position: relative; /* the window is placed relative to the panel */
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-panel {
+    --status-ok: #4ade80;
+    --status-pending: #fbbf24;
+    --status-error: #f87171;
+    --settings-accent: #b39dff;
+  }
+}
+
+.settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: var(--code-bg);
+  }
+}
+
+.settings-window {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10; /* above the windows */
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  text-align: left;
+}
+
+.settings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+
+  strong {
+    color: var(--text-h);
+    font-weight: 500;
+  }
+}
+
+.settings-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.settings-group {
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 0;
+  background: var(--code-bg);
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 12px;
+
+  &[hidden] {
+    display: none; /* the display above would otherwise beat the hidden attribute */
+  }
+}
+
+.settings-field {
+  label {
+    display: block;
+    color: var(--text-h);
+    font-weight: 500;
+  }
+
+  input[type='number'] {
+    width: 88px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-h);
+    font: inherit;
+    font-family: var(--mono);
+
+    &[aria-invalid='true'] {
+      border-color: var(--status-error);
+    }
+  }
+
+  input[type='range'] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--settings-accent);
+  }
+}
+
+.settings-help {
+  margin: 0 0 3px;
+  font-size: 12px;
+}
+
+.settings-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* the setting's name on the left, its allowed range on the right, on one line */
+.settings-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.settings-range {
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.settings-error {
+  margin-top: 2px;
+  color: var(--status-error);
+  font-size: 12px;
+}
+
+.settings-reset {
+  margin-left: auto;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--settings-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.settings-waiting {
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.settings-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 12px;
+}
+
+.settings-button {
+  padding: 2px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--code-bg);
+  }
+}
+
+.settings-toggle:focus-visible,
+.settings-bar:focus-visible,
+.settings-reset:focus-visible,
+.settings-button:focus-visible,
+.settings-field input:focus-visible {
+  outline: 2px solid var(--settings-accent);
+  outline-offset: 2px;
+}

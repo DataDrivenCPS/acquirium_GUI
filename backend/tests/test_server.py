@@ -6,7 +6,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from fastapi.testclient import TestClient
 from src.config import ConfigError
-from src.query_builder import MAX_ROWS, RESOLVE_MIN_SCORE, QuerySpec, ResolutionError, resolve_text, run_query
+import src.settings as settings
+from src.query_builder import QuerySpec, ResolutionError, resolve_text, run_query
 from src.server import app
 from config_stubs import PORTED
 import polars as pl
@@ -284,7 +285,7 @@ class TestWatertapServer:
         result = run_query(server.acq, steps)
         assert result["total_rows"] > 0
         assert "point" in result["columns"]
-        assert len(result["rows"]) == min(result["total_rows"], MAX_ROWS)
+        assert len(result["rows"]) == min(result["total_rows"], settings.get().results.max_rows)
         assert json.loads(json.dumps(result)) == result
 
     # Asserts that real text matching on the WaterTAP graph returns a confident class, and a nonsense text
@@ -293,7 +294,7 @@ class TestWatertapServer:
     def test_resolve_text_on_watertap_graph(self, watertap_server):
         wait_for_rows(lambda: server.acq.query().measurement().metadata())
         found = resolve_text(server.acq, "tank", "class")
-        assert found["uri"] and found["score"] >= RESOLVE_MIN_SCORE
+        assert found["uri"] and found["score"] >= settings.get().resolution.min_score
         with pytest.raises(ResolutionError) as error:
             resolve_text(server.acq, "qzxjv wkplm", "class")
         assert all(set(c) == {"uri", "label", "score", "source"} for c in error.value.candidates)

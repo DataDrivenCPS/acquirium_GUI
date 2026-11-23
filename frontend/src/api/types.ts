@@ -144,3 +144,17 @@ export type ResultOptions = {
   group_by: string // readings only
   aggregate: Aggregate // used only when group_by is set
 }
+
+// ---------- settings ----------
+// The values behind the Settings window, grouped the way the window groups them (GET/PUT /settings).
+export type Settings = {
+  resolution: { min_score: number; margin: number; candidate_count: number }
+  results: { max_rows: number }
+}
+export type SettingsRange = { min: number; max: number }
+// What GET /settings answers: the values in force, the defaults to reset to, and the range each value accepts
+export type SettingsPayload = {
+  values: Settings
+  defaults: Settings
+  limits: { [Group in keyof Settings]: { [Name in keyof Settings[Group]]: SettingsRange } }
+}

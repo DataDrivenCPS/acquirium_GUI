@@ -226,3 +226,6 @@ backend/acquirium_gui/static/
 # The repo root has no package.json (the launcher is in frontend/); npm run here by mistake leaves these
 /package-lock.json
 /node_modules/
+
+# User settings written by the Settings window
+backend/settings.json

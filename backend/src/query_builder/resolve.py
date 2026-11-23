@@ -2,14 +2,7 @@
 import re
 from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseModel, StringConstraints
-
-# TODO: make these two user settings in the UI (a dialog on a failed match) instead of constants.
-# A text must score at least this to count as matched (Acquirium's own default for query text is 0.4)
-RESOLVE_MIN_SCORE = 0.4
-# A match whose runner-up scores within this much of it is ambiguous, so the user should choose
-RESOLVE_MARGIN = 0.1
-# Candidates asked for, and shown to the user when a match fails
-CANDIDATE_COUNT = 5
+import src.settings as settings
 
 Kind = Literal["class", "process", "substance", "quantity_kind", "unit", "any"]
 
@@ -53,15 +46,17 @@ def resolve_text(acq: Any, text: str, kind: Optional[str] = "class", field: Opti
     """The one node `text` names, as {"uri", "label", "score", "source"}.
 
     Raises ResolutionError, carrying the closest candidates, when nothing scores at least
-    RESOLVE_MIN_SCORE or when the runner-up is within RESOLVE_MARGIN of the best. Acquirium is asked
-    with no score floor so near misses are available to show. `field` is passed on to the error.
+    the minimum score setting or when the runner-up is within the tie margin setting of the best
+    (the resolution settings, read on every call). Acquirium is asked with no score floor so near
+    misses are available to show. `field` is passed on to the error.
     """
-    candidates = _candidates(acq.client.resolve(text, kind, top_k=CANDIDATE_COUNT, min_score=0.0))
+    rules = settings.get().resolution
+    candidates = _candidates(acq.client.resolve(text, kind, top_k=rules.candidate_count, min_score=0.0))
     if not candidates:
         raise ResolutionError(f"No match for {text!r}", [], text, field)
     best = candidates[0]
-    if best["score"] < RESOLVE_MIN_SCORE:
-        raise ResolutionError(f"No confident match for {text!r} (best score {best['score']:.2f}, needs {RESOLVE_MIN_SCORE:.2f})", candidates, text, field)
-    if len(candidates) > 1 and best["score"] - candidates[1]["score"] < RESOLVE_MARGIN:
+    if best["score"] < rules.min_score:
+        raise ResolutionError(f"No confident match for {text!r} (best score {best['score']:.2f}, needs {rules.min_score:.2f})", candidates, text, field)
+    if len(candidates) > 1 and best["score"] - candidates[1]["score"] < rules.margin:
         raise ResolutionError(f"Several close matches for {text!r}; choose one", candidates, text, field)
     return best

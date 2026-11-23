@@ -1,3 +1,4 @@
+import src.settings as settings
 import pytest
 from acq_repo import (
     find_acquirium_repo,
@@ -30,3 +31,9 @@ def watertap_server(watertap_config):
         patch.setenv("ACQUIRIUM_GUI_CONFIG", str(watertap_config))
         with TestClient(app=app) as client:
             yield client
+
+
+@pytest.fixture(autouse=True)
+def default_settings(monkeypatch):
+    """Every test starts with the default settings, whatever an earlier test changed."""
+    monkeypatch.setattr(settings, "_current", settings.DEFAULTS)

@@ -9,7 +9,7 @@ did not match a node.
   validation. Malformed steps get a 422.
 - **`to_calls` / `apply_calls`**: each step becomes one `Call` on Acquirium's explore `Query`, and the
   calls are chained onto `acq.query()`. Unset options are left out so Acquirium's defaults apply.
-- **`run_query(acq, spec)`**: runs `.metadata()` and returns `{"columns", "rows" (first MAX_ROWS),
+- **`run_query(acq, spec)`**: runs `.metadata()` and returns `{"columns", "rows" (first `results.max_rows` of the settings),
   "total_rows", "truncated"}`. An empty spec raises `ValueError`.
 - **Result options** (`shaping.py`): `QuerySpec.options` (`ResultOptions`) picks the table a run returns. The default
   is the metadata table, which is never shaped. `view: "readings"` pulls the values of the matched streams instead (`readings.py`)
@@ -64,11 +64,13 @@ A filter is `{ "attr": "medium", "value": "brine", "exclude": false }`; `exclude
 
 ## When text does not match
 
-A text matches when its best score is at least `RESOLVE_MIN_SCORE` (0.4) and the runner-up is not
-within `RESOLVE_MARGIN` (0.1) of it. Otherwise the backend answers 400 with
+A text matches when its best score is at least the minimum candidate score setting (`resolution.min_score`,
+default 0.4) and the runner-up is not within the candidate tie margin (`resolution.margin`, default 0.1)
+of it. `resolution.candidate_count` (default 5) is how many candidates are asked for and listed. All three are
+user settings (`src/settings.py`, kept in `backend/settings.json`) read on every call, so a change applies to the next run. Otherwise the backend answers 400 with
 `{"detail", "candidates": [{"uri", "label", "score", "source"}], "text", "field"}` (`field` is "class" or the filter attribute the text was typed in), and the page lists the candidates.
 Two ontologies can define the same name (`pump` is both an ASHRAE 223 and a water ontology class), so
-a plain name can be reported as ambiguous. TODO: make the threshold and margin user settings in the UI.
+a plain name can be reported as ambiguous.
 
 ## Safety
 
