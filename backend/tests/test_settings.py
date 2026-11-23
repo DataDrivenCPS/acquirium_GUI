@@ -93,3 +93,13 @@ def test_settings_file_does_not_depend_on_working_directory():
     assert SETTINGS_FILE.is_absolute()
     assert SETTINGS_FILE.parent.name == "backend"
     assert SETTINGS_FILE.name == "settings.json"
+
+# Asserts that a bad file is moved aside to settings.json.bak (so the next save cannot destroy it) and the defaults load
+@pytest.mark.fast
+@pytest.mark.parametrize("text", ["{not json", '{"resolution": {"min_score": 5}}', '{"unknown": 1}'])
+def test_bad_file_is_kept_as_backup(tmp_path, text):
+    path = tmp_path / "settings.json"
+    path.write_text(text)
+    assert load(path) == DEFAULTS
+    assert not path.exists()
+    assert (tmp_path / "settings.json.bak").read_text() == text

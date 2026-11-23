@@ -4,10 +4,13 @@ The server loads the file at startup (load) and writes it on every change and at
 Code that needs a setting asks for the current values with get(), so a change applies to the next request.
 """
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+logger = logging.getLogger(__name__)
 
 # Where the settings are kept: backend/settings.json, wherever the server was started from
 SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
@@ -37,10 +40,20 @@ class Settings(BaseModel):
 DEFAULTS = Settings()
 
 def load(path: Path) -> Settings:
-    """The settings saved in `path`; the defaults when the file is missing, unreadable or holds invalid values."""
+    """The settings saved in `path`; the defaults when the file is missing, unreadable or holds invalid values.
+    A file that exists but cannot be used is moved to `<name>.bak` first, so the next save cannot destroy it."""
+    path = Path(path)
     try:
-        return Settings.model_validate(json.loads(Path(path).read_text()))
-    except (OSError, ValueError, ValidationError):  # ValidationError and JSON errors are both ValueErrors
+        return Settings.model_validate(json.loads(path.read_text()))
+    except FileNotFoundError:
+        return DEFAULTS
+    except (OSError, ValueError, ValidationError) as error:  # ValidationError and JSON errors are both ValueErrors
+        backup = path.with_name(path.name + ".bak")
+        try:
+            os.replace(path, backup)
+            logger.warning("Ignoring unusable settings file (%s); kept a copy at %s", error, backup)
+        except OSError:
+            logger.warning("Ignoring unusable settings file (%s); could not move it aside", error)
         return DEFAULTS
 
 def save(settings: Settings, path: Path) -> None:
