@@ -7,6 +7,8 @@ from pydantic import BaseModel
 import acquirium as acquirium_lib
 from src.config import load_config
 from src.drivers import live_drivers
+import src.settings as settings_store
+from src.settings import SETTINGS_FILE, Settings
 from src.query_builder import QuerySpec, ResolveRequest, ResultOptions, query_attributes, resolve_text, run_query, run_streams, to_python
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS, live_or_sample
 from src.streams import has_streams, live_streams
@@ -16,12 +18,24 @@ CONFIG_ENV_VAR = "ACQUIRIUM_GUI_CONFIG"
 # Used when CONFIG_ENV_VAR is unset and this file exists; otherwise Acquirium's built-in defaults apply.
 LOCAL_CONFIG_FILE = "acquirium.toml"
 
+# Where the user's settings are kept; tests point this at a temporary file
+SETTINGS_PATH = SETTINGS_FILE
+
 acq = None
 config = None
+
+# Loads the saved settings into force (startup)
+def load_settings():
+    settings_store.use(settings_store.load(SETTINGS_PATH))
+
+# Writes the settings in force to the file (shutdown, and after every change)
+def save_settings():
+    settings_store.save(settings_store.get(), SETTINGS_PATH)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global acq, config
+    load_settings()
     config_path = os.environ.get(CONFIG_ENV_VAR)
     if not config_path and Path(LOCAL_CONFIG_FILE).is_file():
         config_path = LOCAL_CONFIG_FILE
@@ -30,6 +44,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        save_settings()
         acquirium_lib.shutdown()
 
 app = FastAPI(lifespan=lifespan)
@@ -66,6 +81,28 @@ def runtime_info():
         "config": str(config['path'].resolve()) if config else None,
         "acquirium_address": acq.address,
     }
+
+# What the Settings window shows: the values in force, the defaults to reset to, and each value's allowed range
+def settings_payload():
+    return {"values": settings_store.get().model_dump(), "defaults": settings_store.DEFAULTS.model_dump(), "limits": settings_store.limits()}
+
+@app.get("/settings")
+def get_settings():
+    return settings_payload()
+
+# Applies new settings to the next request and saves them, so they survive a restart; out-of-range values are a 422
+@app.put("/settings")
+def put_settings(new: Settings):
+    settings_store.use(new)
+    save_settings()
+    return settings_payload()
+
+# Puts every setting back to its default
+@app.post("/settings/reset")
+def reset_settings():
+    settings_store.use(settings_store.DEFAULTS)
+    save_settings()
+    return settings_payload()
 
 # Lists every stream with its newest reading; sample streams while Acquirium has none
 @app.get("/streams")
