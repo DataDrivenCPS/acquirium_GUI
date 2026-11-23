@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,26 +12,51 @@ from src.query_builder import QuerySpec, ResolveRequest, ResultOptions, query_at
 from src.sample_data import SAMPLE_DRIVERS, SAMPLE_QUERY_RESULT, SAMPLE_STREAMS, live_or_sample
 from src.streams import has_streams, live_streams
 
+logger = logging.getLogger(__name__)
+
 # Path to an Acquirium TOML config, relative to the server's working directory (backend/) or absolute.
 CONFIG_ENV_VAR = "ACQUIRIUM_GUI_CONFIG"
 # Used when CONFIG_ENV_VAR is unset and this file exists; otherwise Acquirium's built-in defaults apply.
 LOCAL_CONFIG_FILE = "acquirium.toml"
+# Address of an already running Acquirium server. When set, the GUI attaches to it instead of starting its own,
+# and any config is ignored. The GUI never stops a server it did not start.
+ADDRESS_ENV_VAR = "ACQUIRIUM_GUI_ADDRESS"
 
 acq = None
 config = None
+attached = False
+
+# Reads the startup source from the environment: (address, config_path). The address wins when both are set.
+def resolve_startup(environ):
+    address = environ.get(ADDRESS_ENV_VAR)
+    if address:
+        if environ.get(CONFIG_ENV_VAR):
+            logger.warning("%s is set, ignoring %s", ADDRESS_ENV_VAR, CONFIG_ENV_VAR)
+        return address, None
+    config_path = environ.get(CONFIG_ENV_VAR)
+    if not config_path and Path(LOCAL_CONFIG_FILE).is_file():
+        config_path = LOCAL_CONFIG_FILE
+    return None, config_path
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global acq, config
-    config_path = os.environ.get(CONFIG_ENV_VAR)
-    if not config_path and Path(LOCAL_CONFIG_FILE).is_file():
-        config_path = LOCAL_CONFIG_FILE
-    config = load_config(config_path) if config_path else None
-    acq = acquirium_lib.init(config=config['path'] if config else None)
+    global acq, config, attached
+    address, config_path = resolve_startup(os.environ)
+    if address:
+        config = None
+        acq = acquirium_lib.init(address=address)
+    else:
+        config = load_config(config_path) if config_path else None
+        acq = acquirium_lib.init(config=config['path'] if config else None)
+    attached = bool(address)
     try:
         yield
     finally:
+        # Acquirium stops only a server it started, so an attached server keeps running
         acquirium_lib.shutdown()
+        acq = None
+        config = None
+        attached = False
 
 app = FastAPI(lifespan=lifespan)
 
@@ -65,6 +91,7 @@ def runtime_info():
     return {
         "config": str(config['path'].resolve()) if config else None,
         "acquirium_address": acq.address,
+        "mode": "attached" if attached else "managed",
     }
 
 # Lists every stream with its newest reading; sample streams while Acquirium has none
