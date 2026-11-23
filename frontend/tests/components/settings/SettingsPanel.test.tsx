@@ -129,7 +129,7 @@ describe('SettingsPanel', () => {
 
     await userEvent.clear(maxRows)
     await userEvent.type(maxRows, '0')
-    expect(await screen.findByText(/Invalid: fix the highlighted value/)).toBeInTheDocument()
+    expect(await screen.findByText('Invalid')).toBeInTheDocument()
     expect(screen.queryByText('Saved')).not.toBeInTheDocument()
     expect(settingsButton()).toHaveAccessibleName('Settings: invalid')
 
