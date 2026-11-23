@@ -1,0 +1,105 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import StatusDot from '../status/StatusDot'
+import { GROUPS } from './fields'
+import SettingField from './SettingField'
+import SettingsGroup from './SettingsGroup'
+import { useSettings, type SaveState } from './useSettings'
+import './SettingsPanel.css'
+
+// What the dot and the "Saved" line say for each save state
+const SAVE_LABEL: Record<SaveState['state'], string> = { loading: 'Loading', saved: 'Saved', saving: 'Saving', error: 'Not saved' }
+const SAVE_TONE = { loading: 'pending', saved: 'ok', saving: 'pending', error: 'error' } as const
+
+// A button beside Status in the page header. Clicking it drops down one window of settings, grouped in
+// collapsible bars. Every change is saved to the backend right away and applies to the next query.
+// Clicking the button again, pressing Escape, or clicking anywhere else closes the window.
+// To add a setting, see backend/src/settings.py and fields.ts.
+function SettingsPanel() {
+  const { payload, values, save, change, resetOne, resetAll } = useSettings()
+  const [open, setOpen] = useState(false)
+  const windowId = useId()
+  const panelRef = useRef<HTMLElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  // While the window is open, listen to the whole page for Escape and for clicks outside the panel
+  useEffect(() => {
+    if (!open) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!panelRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const summary = `Settings: ${SAVE_LABEL[save.state].toLowerCase()}`
+  const tone = SAVE_TONE[save.state]
+
+  return (
+    <aside ref={panelRef} className="settings-panel" aria-label="Settings">
+      <button
+        ref={buttonRef}
+        type="button"
+        className="settings-toggle"
+        aria-expanded={open}
+        aria-controls={windowId}
+        aria-label={summary}
+        title={summary}
+        onClick={() => setOpen(!open)}
+      >
+        <StatusDot tone={tone} />
+        Settings
+        <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      {/* hidden, not removed, like the windows' contents */}
+      <div id={windowId} className="settings-window" hidden={!open}>
+        <div className="settings-head">
+          <strong>Settings</strong>
+          <span className="settings-saved" role="status">
+            <StatusDot tone={tone} />
+            {save.state === 'error' ? `Not saved: ${save.message}` : SAVE_LABEL[save.state]}
+          </span>
+        </div>
+        {payload && values ? (
+          GROUPS.map((group) => (
+            <SettingsGroup key={group.key} title={group.title} startsOpen={group.startsOpen}>
+              {group.fields.map((spec) => {
+                const section = values[group.key] as Record<string, number>
+                const defaults = payload.defaults[group.key] as Record<string, number>
+                const limits = payload.limits[group.key] as Record<string, { min: number; max: number }>
+                return (
+                  <SettingField
+                    key={spec.name}
+                    spec={spec}
+                    value={section[spec.name]}
+                    defaultValue={defaults[spec.name]}
+                    range={limits[spec.name]}
+                    onChange={(value) => change(group.key, spec.name as never, value)}
+                    onReset={() => resetOne(group.key, spec.name as never)}
+                  />
+                )
+              })}
+            </SettingsGroup>
+          ))
+        ) : (
+          <p className="settings-help settings-waiting">Waiting for the backend to start.</p>
+        )}
+        <div className="settings-foot">
+          <button type="button" className="settings-button" onClick={resetAll} disabled={!payload}>
+            Reset all to defaults
+          </button>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+export default SettingsPanel

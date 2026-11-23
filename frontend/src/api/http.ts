@@ -60,14 +60,14 @@ function resolutionDetails(body: unknown): { candidates: Candidate[]; text: stri
 // Status we give ApiError when no answer came back at all (the backend is down or unreachable)
 export const NO_RESPONSE = 0
 
-// Sends body as JSON with POST and returns the JSON answer. Throws ApiError on an error status or
-// when the backend can't be reached. signal lets the caller cancel a request whose answer it no
-// longer needs; a cancelled request rejects with the browser's AbortError instead.
-export async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T> {
+// Sends body as JSON with the given method (POST or PUT) and returns the JSON answer. Throws ApiError on an
+// error status or when the backend can't be reached. signal lets the caller cancel a request whose answer it
+// no longer needs; a cancelled request rejects with the browser's AbortError instead.
+async function sendJson<T>(method: 'POST' | 'PUT', url: string, body: unknown, signal?: AbortSignal): Promise<T> {
   let response: Response
   try {
     response = await fetch(url, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal,
@@ -83,3 +83,6 @@ export async function postJson<T>(url: string, body: unknown, signal?: AbortSign
   }
   return data as T
 }
+
+export const postJson = <T,>(url: string, body: unknown, signal?: AbortSignal) => sendJson<T>('POST', url, body, signal)
+export const putJson = <T,>(url: string, body: unknown, signal?: AbortSignal) => sendJson<T>('PUT', url, body, signal)
