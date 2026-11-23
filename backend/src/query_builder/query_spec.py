@@ -9,12 +9,10 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, field_validator
+import src.settings as settings
 from src.query_builder.resolve import resolve_text
 from src.query_builder.readings import pull_readings
 from src.query_builder.shaping import ResultOptions, shape_readings
-
-# Most rows a query run should send back; the rest are counted but left out
-MAX_ROWS = 1000
 
 def _blank_to_none(value: Any) -> Any:
     """Trims text and treats blank text as "not set", so the frontend can send its form fields as-is."""
@@ -243,7 +241,7 @@ def _with_labels(calls: list[Call]) -> list[Call]:
 
 def run_query(acq: Any, spec: QuerySpec) -> dict:
     """Builds the query on acq.query(), runs .metadata() (or pulls the readings for the readings view, see
-    ResultOptions and readings.py), and returns {"columns": [...], "rows": [[...], ...] (at most MAX_ROWS, every cell text or
+    ResultOptions and readings.py), and returns {"columns": [...], "rows": [[...], ...] (at most the max_rows setting, every cell text or
     None), "total_rows": int, "truncated": bool}.
 
     Raises ValueError for an empty spec, ResolutionError (a ValueError) for class text or a filter value
@@ -266,12 +264,13 @@ def run_query(acq: Any, spec: QuerySpec) -> dict:
     return table_result(table)
 
 def table_result(table: Any) -> dict:
-    """A table as the page receives it: its columns, at most MAX_ROWS rows (every cell text or None), the full row count and whether rows were cut."""
+    """A table as the page receives it: its columns, at most the max_rows setting's rows (every cell text or None), the full row count and whether rows were cut."""
+    max_rows = settings.get().results.max_rows
     return {
         "columns": table.columns,
-        "rows": [[None if cell is None else str(cell) for cell in row] for row in table.head(MAX_ROWS).rows()],
+        "rows": [[None if cell is None else str(cell) for cell in row] for row in table.head(max_rows).rows()],
         "total_rows": table.height,
-        "truncated": table.height > MAX_ROWS,
+        "truncated": table.height > max_rows,
     }
 
 def _format_call(call: Call) -> str:

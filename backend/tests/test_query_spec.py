@@ -3,7 +3,8 @@ import polars as pl
 import pytest
 from acquirium.Client.explore import REGISTRY, Not
 from pydantic import ValidationError
-from src.query_builder import MAX_ROWS, Call, QuerySpec, ResolutionError, apply_calls, query_attributes, run_query, to_calls, to_python
+import src.settings as settings
+from src.query_builder import Call, QuerySpec, ResolutionError, apply_calls, query_attributes, run_query, to_calls, to_python
 
 
 def spec(*steps):
@@ -402,13 +403,23 @@ def test_no_identifier_means_no_existence_query():
 def test_to_calls_does_not_add_label_includes():
     assert [c.method for c in to_calls(spec({"kind": "entity", "cls": "Pump"}))] == ["entity"]
 
-# Asserts that only MAX_ROWS rows are sent back, while the total still counts every row
+# Asserts that only the max_rows setting's worth of rows are sent back, while the total still counts every row
 @pytest.mark.fast
 def test_run_query_truncates_long_tables():
-    acq = FakeAcquirium(pl.DataFrame({"point": [f"ns1:p{i}" for i in range(MAX_ROWS + 5)]}))
+    max_rows = settings.get().results.max_rows
+    acq = FakeAcquirium(pl.DataFrame({"point": [f"ns1:p{i}" for i in range(max_rows + 5)]}))
     result = run_query(acq, spec({"kind": "measurement"}))
-    assert len(result["rows"]) == MAX_ROWS
-    assert (result["total_rows"], result["truncated"]) == (MAX_ROWS + 5, True)
+    assert len(result["rows"]) == max_rows
+    assert (result["total_rows"], result["truncated"]) == (max_rows + 5, True)
+
+# Asserts that lowering max_rows in settings applies to the next run
+@pytest.mark.fast
+def test_max_rows_comes_from_settings():
+    settings.use(settings.Settings.model_validate({"results": {"max_rows": 3}}))
+    acq = FakeAcquirium(pl.DataFrame({"point": [f"ns1:p{i}" for i in range(10)]}))
+    result = run_query(acq, spec({"kind": "measurement"}))
+    assert len(result["rows"]) == 3
+    assert (result["total_rows"], result["truncated"]) == (10, True)
 
 # Asserts that a table with no rows is a normal result, not an error
 @pytest.mark.fast
@@ -486,7 +497,6 @@ def test_to_python_needs_a_step():
 # Asserts that the rest of the public interface stays importable and shaped as documented
 @pytest.mark.fast
 def test_interface_is_kept():
-    assert MAX_ROWS == 1000
     assert Call("include", ("unit",), {"of": "m"}) == Call(method="include", args=("unit",), kwargs={"of": "m"})
     assert [type(step).__name__ for step in QuerySpec.model_validate({"steps": [
         {"kind": "entity", "cls": "Pump"}, {"kind": "related", "cls": "Valve"}, {"kind": "measurement"},

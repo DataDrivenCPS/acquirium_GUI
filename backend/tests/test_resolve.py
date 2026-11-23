@@ -1,5 +1,10 @@
 import pytest
-from src.query_builder import MAX_ROWS, RESOLVE_MARGIN, RESOLVE_MIN_SCORE, ResolutionError, resolve_text, run_query, QuerySpec
+import src.settings as settings
+from src.query_builder import ResolutionError, resolve_text, run_query, QuerySpec
+from src.settings import Settings
+
+def use(**resolution):
+    settings.use(Settings.model_validate({"resolution": resolution}))
 
 def match(uri, score, label=None, stage="semantic"):
     return {"uri": uri, "label": label, "score": score, "match_stage": stage}
@@ -19,10 +24,33 @@ class FakeAcq:
 
 PUMP, PIPE = match("ns1:Pump", 0.91, "Pump"), match("ns1:Pipe", 0.55, "Pipe")
 
-# Asserts that the thresholds are the agreed starting values, kept in one place
+# Asserts that a score under the minimum raises, and that raising the minimum in settings turns a confident match into one that needs a pick
 @pytest.mark.fast
-def test_threshold_and_margin_defaults():
-    assert (RESOLVE_MIN_SCORE, RESOLVE_MARGIN) == (0.4, 0.1)
+def test_min_score_comes_from_settings():
+    acq = FakeAcq([PUMP])
+    assert resolve_text(acq, "pump", "class")["uri"] == "ns1:Pump"
+    use(min_score=0.95)
+    with pytest.raises(ResolutionError, match="needs 0.95"):
+        resolve_text(acq, "pump", "class")
+
+# Asserts that the margin in settings decides when a close runner-up asks for a pick
+@pytest.mark.fast
+def test_margin_comes_from_settings():
+    acq = FakeAcq([PUMP, match("ns1:Pipe", 0.8, "Pipe")])  # 0.11 apart
+    assert resolve_text(acq, "pump", "class")["uri"] == "ns1:Pump"
+    use(margin=0.2)
+    with pytest.raises(ResolutionError, match="close matches"):
+        resolve_text(acq, "pump", "class")
+    use(margin=0)  # a tie is the only thing a margin of 0 cannot separate; a gap always passes
+    assert resolve_text(acq, "pump", "class")["uri"] == "ns1:Pump"
+
+# Asserts that the candidate count in settings is how many candidates Acquirium is asked for
+@pytest.mark.fast
+def test_candidate_count_comes_from_settings():
+    acq = FakeAcq([PUMP])
+    use(candidate_count=9)
+    resolve_text(acq, "pump", "class")
+    assert acq.client.log == [("pump", "class", 9, 0.0)]
 
 # Asserts that a clear winner is returned as a plain uri/label/score
 @pytest.mark.fast
