@@ -17,6 +17,7 @@ const SAVE_TONE = { loading: 'pending', saved: 'ok', saving: 'pending', error: '
 function SettingsPanel() {
   const { payload, values, save, change, resetOne, resetAll } = useSettings()
   const [open, setOpen] = useState(false)
+  const [invalidFields, setInvalidFields] = useState<ReadonlySet<string>>(new Set()) // fields whose box holds an unusable entry
   const windowId = useId()
   const panelRef = useRef<HTMLElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -40,8 +41,19 @@ function SettingsPanel() {
     }
   }, [open])
 
-  const summary = `Settings: ${SAVE_LABEL[save.state].toLowerCase()}`
-  const tone = SAVE_TONE[save.state]
+  // An unusable entry is never sent, so "Saved" would be wrong while one is showing (the last valid value is what is saved)
+  const hasInvalid = invalidFields.size > 0 && save.state !== 'loading'
+  const label = hasInvalid ? 'Not saved' : SAVE_LABEL[save.state]
+  const summary = `Settings: ${label.toLowerCase()}`
+  const tone = hasInvalid ? 'error' : SAVE_TONE[save.state]
+  const setValidity = (key: string, valid: boolean) =>
+    setInvalidFields((current) => {
+      if (current.has(key) === !valid) return current
+      const next = new Set(current)
+      if (valid) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   return (
     <aside ref={panelRef} className="settings-panel" aria-label="Settings">
@@ -65,7 +77,7 @@ function SettingsPanel() {
           <strong>Settings</strong>
           <span className="settings-saved" role="status">
             <StatusDot tone={tone} />
-            {save.state === 'error' ? `Not saved: ${save.message}` : SAVE_LABEL[save.state]}
+            {hasInvalid ? 'Not saved: fix the highlighted value' : save.state === 'error' ? `Not saved: ${save.message}` : label}
           </span>
         </div>
         {payload && values ? (
@@ -84,6 +96,7 @@ function SettingsPanel() {
                     range={limits[spec.name]}
                     onChange={(value) => change(group.key, spec.name as never, value)}
                     onReset={() => resetOne(group.key, spec.name as never)}
+                    onValidityChange={(valid) => setValidity(`${group.key}.${spec.name}`, valid)}
                   />
                 )
               })}

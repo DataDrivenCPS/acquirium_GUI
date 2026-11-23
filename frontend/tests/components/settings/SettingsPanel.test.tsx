@@ -117,6 +117,27 @@ describe('SettingsPanel', () => {
     expect(requestBodies(fetchMock, 'PUT /api/settings')).toEqual([])
   })
 
+  it('does not say Saved while an entry is invalid, and says Saved again once it is fixed', async () => {
+    mockFetch({
+      'GET /api/settings': { body: payload() },
+      'PUT /api/settings': { body: payload(SAVED_ROWS) },
+    })
+    render(<SettingsPanel />)
+    await openPanel()
+    const maxRows = await screen.findByLabelText('Maximum Rows')
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
+
+    await userEvent.clear(maxRows)
+    await userEvent.type(maxRows, '0')
+    expect(await screen.findByText(/Not saved: fix the highlighted value/)).toBeInTheDocument()
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+    expect(settingsButton()).toHaveAccessibleName('Settings: not saved')
+
+    await userEvent.clear(maxRows)
+    await userEvent.type(maxRows, '50')
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+
   it('offers Reset only for a setting that differs from its default, and Reset puts the default back and saves it', async () => {
     const fetchMock = mockFetch({
       'GET /api/settings': { body: payload(SAVED_ROWS) },

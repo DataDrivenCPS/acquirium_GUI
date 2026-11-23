@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { SettingsRange } from '../../api/types'
 import type { FieldSpec } from './fields'
 
@@ -9,6 +9,7 @@ type Props = {
   range: SettingsRange
   onChange: (value: number) => void // called only with a valid number
   onReset: () => void
+  onValidityChange: (valid: boolean) => void // told whenever the box becomes valid or invalid, so the window can say what is not saved
 }
 
 // A valid entry: a number in range, and a whole number for whole-number settings
@@ -22,10 +23,19 @@ function parse(text: string, range: SettingsRange, integer: boolean): number | n
 
 // One setting: its name, description, a number box (and a slider for scores), a Reset when it differs from the default.
 // The box keeps what the person typed, even while it is not valid yet; only valid numbers are passed on to be saved.
-function SettingField({ spec, value, defaultValue, range, onChange, onReset }: Props) {
+function SettingField({ spec, value, defaultValue, range, onChange, onReset, onValidityChange }: Props) {
   const id = useId()
   const [text, setText] = useState(String(value))
   const invalid = parse(text, range, spec.integer) === null
+
+  // Report validity only when it changes (the callback is kept in a ref because the parent makes a new one on every render).
+  // On the way out, report valid so a removed field never leaves the window stuck on "Not saved".
+  const report = useRef(onValidityChange)
+  report.current = onValidityChange
+  useEffect(() => {
+    report.current(!invalid)
+  }, [invalid])
+  useEffect(() => () => report.current(true), [])
 
   // When the value changes from outside (Reset, or the backend's answer), show it. React lets a component
   // adjust its own state while rendering, which avoids an extra render after the screen has been drawn.
